@@ -1,0 +1,11 @@
+# This repository consumes its root plugin through a local source for self-validation.
+version: 0.1
+cli:
+  version: 1.25.0
+plugins:
+  sources:
+    - id: quality-configs
+      local: .
+    - id: trunk
+      ref: v1.11.0
+      uri: https://github.com/trunk-io/plugins
