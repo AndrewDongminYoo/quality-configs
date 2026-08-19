@@ -1,0 +1,16 @@
+version: 0.1
+cli:
+  version: 1.25.0
+
+runtimes:
+  enabled:
+    - node@22.22.3
+    - python@3.10.8
+
+actions:
+  disabled:
+    - trunk-fmt-pre-commit
+  enabled:
+    - trunk-announce
+    - trunk-check-pre-push
+    - trunk-upgrade-available

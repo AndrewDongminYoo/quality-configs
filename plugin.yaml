@@ -1,0 +1,47 @@
+version: 0.1
+required_trunk_version: ">=1.25.0"
+
+runtimes:
+  enabled:
+    - node@22.22.3
+    - python@3.10.8
+
+lint:
+  enabled:
+    - actionlint@1.7.12
+    - checkov@3.3.8
+    - cspell@10.0.1
+    - git-diff-check
+    - markdownlint@0.49.1
+    - osv-scanner@2.4.0
+    - prettier@3.9.6
+    - trufflehog@3.96.0
+    - yamllint@1.38.0
+  ignore:
+    - linters: [cspell, prettier]
+      paths:
+        - "**/*.lock"
+        - "**/package-lock.json"
+        - "**/pnpm-lock.yaml"
+        - "**/yarn.lock"
+    - linters: [cspell]
+      paths:
+        - "**/android/gradlew"
+        - "**/example/android/gradlew"
+        - "**/project.pbxproj"
+    - linters: [markdownlint]
+      paths:
+        - .github/**/*.md
+  exported_configs:
+    - configs:
+        - configs/cspell.config.yaml
+        - configs/.markdownlint.yaml
+        - configs/prettier.config.mjs
+        - configs/svgo.config.mjs
+        - configs/.yamllint.yaml
+
+actions:
+  enabled:
+    - trunk-announce
+    - trunk-check-pre-push
+    - trunk-upgrade-available

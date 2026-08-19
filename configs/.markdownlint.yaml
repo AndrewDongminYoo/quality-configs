@@ -1,0 +1,8 @@
+default: false
+
+# Keep only low-noise fenced-code structure checks.
+MD031: true
+MD040: true
+MD046:
+  style: fenced
+MD048: true

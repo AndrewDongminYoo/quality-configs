@@ -1,0 +1,27 @@
+version: 0.1
+cli:
+  version: 1.25.0
+
+runtimes:
+  enabled:
+    - node@22.22.3
+    - python@3.10.8
+
+lint:
+  disabled:
+    - dotenv-linter
+    - oxipng
+  enabled:
+    - eslint@SYSTEM
+    - prettier@3.9.6:
+        packages:
+          - prettier-plugin-tailwindcss@0.8.1
+    - svgo@4.0.2
+
+actions:
+  disabled:
+    - trunk-fmt-pre-commit
+  enabled:
+    - trunk-announce
+    - trunk-check-pre-push
+    - trunk-upgrade-available

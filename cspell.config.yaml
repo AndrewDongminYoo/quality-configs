@@ -1,0 +1,25 @@
+version: "0.2"
+$schema: https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json
+import:
+  - ./configs/cspell.config.yaml
+useGitignore: true
+enableGlobDot: true
+ignorePaths:
+  - .git
+dictionaries:
+  - filetypes
+  - fonts
+  - softwareTerms
+words:
+  - Dongmin
+  - dongminyu
+  - dotenv
+  - gradlew
+  - ktlint
+  - oxipng
+  - pbxproj
+  - Podfile
+  - ryaml
+  - shellcheck
+  - shfmt
+  - toplevel

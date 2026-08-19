@@ -1,0 +1,13 @@
+version: "0.2"
+$schema: https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json
+allowCompoundWords: false
+ignorePaths:
+  - "**/*.lock"
+  - "**/package-lock.json"
+  - "**/pnpm-lock.yaml"
+  - "**/yarn.lock"
+  - "**/project.pbxproj"
+  - "**/android/gradlew"
+  - "**/example/android/gradlew"
+words: []
+ignoreWords: []
