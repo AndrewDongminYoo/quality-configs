@@ -16,7 +16,8 @@ The local runtime and action contract lives in [`profiles/baseline`](./profiles/
 
 Trunk does not select an external plugin or a named profile during `trunk init`.
 The supported flow is to initialize Trunk, add the shared plugin, and then merge exactly one explicit profile overlay into the consumer repository.
-The overlay must replace the generated Node, Python, and action entries because consumer-local configuration overrides the remote plugin.
+Consumer-local configuration overrides the remote plugin, so the overlay must replace any generated Node, Python, and action entries that already exist in the consumer.
+A consumer that has none of those entries inherits the contract from the plugin alone; the overlay then keeps `trunk-fmt-pre-commit` explicitly disabled instead of merely absent, so a later `trunk init` or an accepted upgrade prompt cannot reintroduce it.
 This avoids a custom YAML-merging CLI in the initial baseline.
 
 ## Universal Baseline
@@ -103,11 +104,16 @@ Keep project-specific custom dictionaries in the consumer repository.
 Roll out one repository at a time:
 
 1. Run `trunk init` if the repository is not initialized.
-2. Merge the selected profile overlay, replacing generated Node, Python, and conflicting action entries.
+2. Merge the selected profile overlay, replacing any generated Node, Python, and conflicting action entries it finds.
 3. Add the shared plugin at a tag or SHA.
 4. Run `trunk fmt --no-fix --diff=full`.
 5. Run each newly enabled linter with `trunk check --all --no-fix --filter=<linter>`.
 6. Review findings before enabling any mutating hook.
+
+Work in the repository's own checkout.
+Trunk treats a linked worktree as a separate repository but writes `core.hooksPath` into the shared `.git/config`, so applying a profile from a worktree changes which hooks the primary checkout runs.
+
+The adoption evidence from the first consumer is recorded in [`docs/notes/2026-08-29-first-consumer-adoption.md`](./docs/notes/2026-08-29-first-consumer-adoption.md).
 
 ## Sources
 
