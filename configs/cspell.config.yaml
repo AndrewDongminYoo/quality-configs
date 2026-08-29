@@ -9,5 +9,11 @@ ignorePaths:
   - "**/project.pbxproj"
   - "**/android/gradlew"
   - "**/example/android/gradlew"
-words: []
+words:
+  - dotenv
+  - gradlew
+  - oxipng
+  - Podfile
+  - shellcheck
+  - shfmt
 ignoreWords: []
