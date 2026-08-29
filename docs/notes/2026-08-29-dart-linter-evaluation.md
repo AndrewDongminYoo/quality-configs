@@ -60,6 +60,26 @@ A checkout that has not run `flutter pub get` therefore reports a clean analysis
 
 A plugin definition cannot repair this, because `dart analyze` does not detect its own degradation.
 
+## The Analyzer Runs Once Per Directory
+
+The `analyze` command declares `batch: true`, but `run_from: ${parent}` splits every batch along directory boundaries, so a project pays one Dart analyzer startup per directory.
+`format` does not share the problem because PR #1114 already runs it from the package root.
+
+Measured over 161 Dart files in 40 directories, with each round rewriting every file so the lint cache could not serve a previous result, and invocations counted by a shim placed ahead of `dart` on `PATH`:
+
+```log
+                       wall clock (median)   dart invocations
+run_from: ${parent}    6.14s                 43
+run_from: root         2.17s                  6
+```
+
+Running the same tree directly costs 0.85s for `dart analyze lib` and 0.26s for `dart format lib`.
+
+Batching is not a change the plugin can make, though.
+Trunk resolves the parsed path against the target's own parent directory rather than against `run_from`, so a package with an `example/` directory reports `example/bad.dart` where the correct location is `example/lib/bad.dart`.
+The comment on the current setting describes exactly this constraint.
+A batched analyze would need `dart analyze --format=machine`, whose absolute paths remove the ambiguity, together with a new parse regex, severity and rule-code mapping, and regenerated snapshots.
+
 ## Decision
 
 The Flutter profile keeps `dart` under `lint.disabled`.
