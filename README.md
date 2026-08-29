@@ -84,13 +84,13 @@ Install the same plugin in the consumer when editor integration or project-owned
 ### React Native
 
 Merge [`profiles/react-native/trunk.yaml`](./profiles/react-native/trunk.yaml).
-The profile uses `eslint@SYSTEM`, so the consumer must provide its own compatible ESLint binary and configuration.
+The profile leaves ESLint entirely to the consumer, which keeps whatever version it already pins.
 SVGO, oxipng, and dotenv-linter remain disabled because they can rewrite mobile assets or Xcode environment files.
 
 ### Next.js
 
 Merge [`profiles/next/trunk.yaml`](./profiles/next/trunk.yaml).
-The profile uses the consumer's ESLint and enables SVGO without enabling automatic formatting hooks.
+The profile leaves ESLint to the consumer and enables SVGO without enabling automatic formatting hooks.
 Review `trunk fmt --no-fix --diff=full --filter=svgo` before accepting SVG rewrites.
 For Tailwind projects, copy [`profiles/next/prettier.config.mjs`](./profiles/next/prettier.config.mjs) to the consumer root and set `tailwindStylesheet` when using Tailwind CSS v4.
 The profile supplies `prettier-plugin-tailwindcss` to Trunk; install the same package in the consumer when editor integration or project-owned Prettier scripts also need it.

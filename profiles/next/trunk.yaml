@@ -12,7 +12,6 @@ lint:
     - dotenv-linter
     - oxipng
   enabled:
-    - eslint@SYSTEM
     - prettier@3.9.6:
         packages:
           - prettier-plugin-tailwindcss@0.8.1
