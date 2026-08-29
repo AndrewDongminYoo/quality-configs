@@ -11,15 +11,21 @@ dictionaries:
   - fonts
   - softwareTerms
 words:
+  - cntrl
   - Dongmin
   - dongminyu
   - dotenv
+  - elif
+  - esac
   - gradlew
   - ktlint
+  - mktemp
   - oxipng
   - pbxproj
+  - pipefail
   - Podfile
   - ryaml
   - shellcheck
   - shfmt
   - toplevel
+  - worktree
