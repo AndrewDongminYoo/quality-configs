@@ -10,12 +10,13 @@ plugin_id="quality-configs-test-$$"
 mkdir -p "$plugin_root"
 cp "$repo_root/plugin.yaml" "$plugin_root/plugin.yaml"
 cp -R "$repo_root/configs" "$plugin_root/configs"
-# Trunk discovers linters/<name>/plugin.yaml on its own, so the staged copy
-# must carry them or the test resolves a different plugin than consumers get.
-# No assertion covers this yet: both bundled names also exist in
-# trunk-io/plugins, which wins a name collision, so nothing here can tell a
-# staged copy carrying them from one that does not.
+# Trunk discovers linters/<name>/plugin.yaml and runtimes/<name>/plugin.yaml on
+# its own, so the staged copy must carry them or the test resolves a different
+# plugin than consumers get. The standalone scenario below is what proves the
+# runtimes copy landed; the linters copy has no assertion, because both bundled
+# names also exist in trunk-io/plugins, which wins a name collision.
 cp -R "$repo_root/linters" "$plugin_root/linters"
+cp -R "$repo_root/runtimes" "$plugin_root/runtimes"
 
 cleanup() {
   if [[ -n "${test_root:-}" && -d "$test_root" && "$(basename "$test_root")" == quality-configs-test.* ]]; then
@@ -159,6 +160,35 @@ initialize_repository "$baseline_root"
   cp "$repo_root/tests/fixtures/violations/cspell.md" spell.md
   cp "$repo_root/tests/fixtures/overrides/cspell.config.yaml" cspell.config.yaml
   expect_success cspell spell.md
+)
+
+# A consumer that drops trunk-io/plugins depends on the bundled runtime, and on
+# it alone: python@3.14.4 is absent from the CLI's built-in definitions, so
+# without runtimes/python the config is rejected before any linter runs. This is
+# also the only configuration in which the bundled linter definitions win, since
+# nothing is left to collide with their names.
+#
+# The source is written into the file rather than added with `trunk plugins add`.
+# That command needs a config it can already resolve, and a profile pinning a
+# runtime only this plugin defines is not resolvable until the plugin is in the
+# sources, so the bootstrap has to happen in one write.
+standalone_root="$test_root/standalone"
+initialize_repository "$standalone_root"
+mkdir -p "$standalone_root/.trunk"
+awk -v id="$plugin_id" -v path="$plugin_root" '
+  /^runtimes:$/ && !inserted {
+    print "plugins:"
+    print "  sources:"
+    print "    - id: " id
+    print "      local: " path
+    print ""
+    inserted = 1
+  }
+  { print }
+' "$repo_root/profiles/baseline/trunk.yaml" >"$standalone_root/.trunk/trunk.yaml"
+(
+  cd "$standalone_root"
+  trunk config print --no-progress --color=false >/dev/null
 )
 
 for profile_name in flutter react-native next; do
