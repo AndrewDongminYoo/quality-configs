@@ -57,7 +57,7 @@ assert_resolved_baseline() {
     missing = expected_linters - Array(data.dig("lint", "enabled"))
     abort "missing baseline linters: #{missing.join(", ")}" unless missing.empty?
 
-    expected_runtimes = %w[node@22.22.3 python@3.10.8]
+    expected_runtimes = %w[node@22.22.3 python@3.14.4]
     actual_runtimes = Array(data.dig("runtimes", "enabled"))
     missing_runtimes = expected_runtimes - actual_runtimes
     unless missing_runtimes.empty?
@@ -77,6 +77,27 @@ assert_resolved_baseline() {
     missing_configs = expected_configs - exported
     abort "missing exported configs: #{missing_configs.join(", ")}" unless missing_configs.empty?
   '
+}
+
+# A consumer merges a profile into its existing .trunk/trunk.yaml, so the
+# generated plugin sources survive. Copying the profile over the file would
+# discard them, and the runtime pins resolve only through trunk-io/plugins.
+apply_profile() {
+  local profile_name=$1
+  local target_file=$2
+
+  awk '
+    /^runtimes:$/ && !inserted {
+      print "plugins:"
+      print "  sources:"
+      print "    - id: trunk"
+      print "      ref: v1.11.0"
+      print "      uri: https://github.com/trunk-io/plugins"
+      print ""
+      inserted = 1
+    }
+    { print }
+  ' "$repo_root/profiles/$profile_name/trunk.yaml" >"$target_file"
 }
 
 expect_failure() {
@@ -105,8 +126,7 @@ initialize_repository "$baseline_root"
 (
   cd "$baseline_root"
   trunk init --no-to-all --only-detected-linters --no-progress
-  cp "$repo_root/profiles/baseline/trunk.yaml" .trunk/trunk.yaml
-  trunk plugins add https://github.com/trunk-io/plugins v1.11.0 --id=trunk --no-progress
+  apply_profile baseline .trunk/trunk.yaml
   trunk plugins add "$plugin_root" --id="$plugin_id" --no-progress
   QUALITY_CONFIGS_PLUGIN_YAML="$plugin_root/plugin.yaml" assert_resolved_baseline
 
@@ -139,13 +159,12 @@ for profile_name in flutter react-native next; do
   profile_root="$test_root/profile-$profile_name"
   initialize_repository "$profile_root"
   mkdir -p "$profile_root/.trunk"
-  cp "$repo_root/profiles/$profile_name/trunk.yaml" "$profile_root/.trunk/trunk.yaml"
+  apply_profile "$profile_name" "$profile_root/.trunk/trunk.yaml"
   if [[ -f "$repo_root/profiles/$profile_name/prettier.config.mjs" ]]; then
     cp "$repo_root/profiles/$profile_name/prettier.config.mjs" "$profile_root/prettier.config.mjs"
   fi
   (
     cd "$profile_root"
-    trunk plugins add https://github.com/trunk-io/plugins v1.11.0 --id=trunk --no-progress
     trunk plugins add "$plugin_root" --id="$plugin_id" --no-progress
     trunk config print --no-progress --color=false >/dev/null
   )

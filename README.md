@@ -20,6 +20,10 @@ Consumer-local configuration overrides the remote plugin, so the overlay must re
 A consumer that has none of those entries inherits the contract from the plugin alone; the overlay then keeps `trunk-fmt-pre-commit` explicitly disabled instead of merely absent, so a later `trunk init` or an accepted upgrade prompt cannot reintroduce it.
 This avoids a custom YAML-merging CLI in the initial baseline.
 
+Merge the overlay rather than copying it over the consumer's file.
+The `plugins.sources` block must survive, because `python@3.14.4` is defined by `trunk-io/plugins` and not by the CLI's built-in set; a configuration naming a runtime no source defines is rejected before any linter runs.
+`trunk init` writes that source, so a consumer that keeps it needs no extra step.
+
 ## Universal Baseline
 
 The plugin enables:
