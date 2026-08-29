@@ -75,10 +75,24 @@ run_from: root         2.17s                  6
 
 Running the same tree directly costs 0.85s for `dart analyze lib` and 0.26s for `dart format lib`.
 
-Batching is not a change the plugin can make, though.
+Batching is not a change the plugin can make, though, and two routes were tried.
+
+Moving `run_from` to the project root while keeping the default output format reports the wrong location as soon as a repository holds more than one `analysis_options.yaml`.
 Trunk resolves the parsed path against the target's own parent directory rather than against `run_from`, so a package with an `example/` directory reports `example/bad.dart` where the correct location is `example/lib/bad.dart`.
-The comment on the current setting describes exactly this constraint.
-A batched analyze would need `dart analyze --format=machine`, whose absolute paths remove the ambiguity, together with a new parse regex, severity and rule-code mapping, and regenerated snapshots.
+The comment on the current setting describes exactly this constraint, and the linter's own snapshot fixture carries its own `analysis_options.yaml`, so the stored snapshots resolve identically under both settings and cannot detect the defect.
+
+`dart analyze --format=machine` reports absolute paths, which does fix the location under the same batching, but it renames every rule:
+
+```log
+default format  ->  dart/prefer_single_quotes
+machine format  ->  dart/PREFER_SINGLE_QUOTES
+```
+
+Existing suppressions stop working, and Trunk says so itself: `trunk-ignore(dart/prefer_single_quotes) is not suppressing a lint issue`.
+The change would silently disarm every `trunk-ignore(dart/…)` comment already written in consumer repositories, break `issue_url_format`, and drop the correction sentence from each message.
+
+The output that would work is `--format=json`, which carries lowercase codes, absolute paths, and both the problem and correction messages.
+It cannot be consumed by a plugin definition: Trunk's named output parsers are built into the CLI rather than declared in a plugin, so a Dart JSON parser is a request to Trunk rather than a change to `trunk-io/plugins`.
 
 ## Decision
 
