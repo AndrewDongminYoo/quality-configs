@@ -10,6 +10,12 @@ plugin_id="quality-configs-test-$$"
 mkdir -p "$plugin_root"
 cp "$repo_root/plugin.yaml" "$plugin_root/plugin.yaml"
 cp -R "$repo_root/configs" "$plugin_root/configs"
+# Trunk discovers linters/<name>/plugin.yaml on its own, so the staged copy
+# must carry them or the test resolves a different plugin than consumers get.
+# No assertion covers this yet: both bundled names also exist in
+# trunk-io/plugins, which wins a name collision, so nothing here can tell a
+# staged copy carrying them from one that does not.
+cp -R "$repo_root/linters" "$plugin_root/linters"
 
 cleanup() {
   if [[ -n "${test_root:-}" && -d "$test_root" && "$(basename "$test_root")" == quality-configs-test.* ]]; then
