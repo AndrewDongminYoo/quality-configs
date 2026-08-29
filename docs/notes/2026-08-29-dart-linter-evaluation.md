@@ -75,7 +75,7 @@ run_from: root         2.17s                  6
 
 Running the same tree directly costs 0.85s for `dart analyze lib` and 0.26s for `dart format lib`.
 
-Batching is not a change the plugin can make, though, and two routes were tried.
+Three routes to batching were tried, and the third works.
 
 Moving `run_from` to the project root while keeping the default output format reports the wrong location as soon as a repository holds more than one `analysis_options.yaml`.
 Trunk resolves the parsed path against the target's own parent directory rather than against `run_from`, so a package with an `example/` directory reports `example/bad.dart` where the correct location is `example/lib/bad.dart`.
@@ -91,8 +91,22 @@ machine format  ->  dart/PREFER_SINGLE_QUOTES
 Existing suppressions stop working, and Trunk says so itself: `trunk-ignore(dart/prefer_single_quotes) is not suppressing a lint issue`.
 The change would silently disarm every `trunk-ignore(dart/…)` comment already written in consumer repositories, break `issue_url_format`, and drop the correction sentence from each message.
 
-The output that would work is `--format=json`, which carries lowercase codes, absolute paths, and both the problem and correction messages.
-It cannot be consumed by a plugin definition: Trunk's named output parsers are built into the CLI rather than declared in a plugin, so a Dart JSON parser is a request to Trunk rather than a change to `trunk-io/plugins`.
+`--format=json` does work, and it is consumable from a plugin definition after all.
+An earlier revision of this note claimed otherwise on the reasoning that Trunk's named output parsers are built into the CLI and that the single-line JSON document defeats a line-oriented regex.
+Neither holds: an `output: regex` definition matches every diagnostic within the one line, and the JSON carries lowercase codes, absolute paths, and uppercase severities that map to the same levels.
+
+Validated against three owned repositories with their packages already resolved, using a local `lint.definitions` override so the consumer configuration replaces the plugin's `analyze` command:
+
+```log
+repository        analysis_options  dart dirs   before      after     invocations
+Flutter game                     1         34    38.97s     4.12s     35 -> 4
+Flutter app                      2         24    14.66s     4.31s     21 -> 2
+analyzer plugins                 4         16    13.65s     9.99s     23 -> 11
+```
+
+The Flutter app reports 167 issues from its own `very_good_analysis` rules, and the two definitions produce the same 167 with identical files, lines, columns, levels, and rule codes.
+The gain tracks the number of `analysis_options.yaml` files, because that is what still bounds a batch.
+The only user-visible change is that each message loses its trailing correction sentence, since the JSON keeps `correctionMessage` in a separate field that a single capture group cannot reach.
 
 ## Decision
 
@@ -100,3 +114,6 @@ The Flutter profile keeps `dart` under `lint.disabled`.
 Enabling `dart@SYSTEM` would fix the formatter and import the analyzer's silent degradation in the same move, and Flutter projects already run analysis through their own pinned toolchain.
 
 Enabling the format command alone would be worth revisiting, but whether a consumer can disable a single command of a linter without redeclaring the whole definition was not established: `--filter=dart/format` was accepted and produced the same output as `--filter=dart`, which does not distinguish command-level filtering from linter-level filtering.
+
+Revisit the decision when the JSON change lands upstream, since the cost argument disappears at that point and the analyzer's package-resolution requirement becomes the only remaining objection.
+A consumer that runs `flutter pub get` before linting, which every repository measured above does, already satisfies it.
