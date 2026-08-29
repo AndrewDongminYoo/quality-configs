@@ -2,7 +2,8 @@
 
 ## Scope
 
-These findings came from applying `v0.1.0` to three public consumers on 2026-08-29, one per profile that had never run outside `scripts/test-plugin.sh`.
+These findings came from applying the plugin to five public consumers on 2026-08-29, starting with one per profile that had never run outside `scripts/test-plugin.sh`.
+The first four took `v0.1.0` and `piggon` took `v0.2.0`.
 
 | Consumer                       | Profile        | Stack                 |
 | ------------------------------ | -------------- | --------------------- |
@@ -10,11 +11,13 @@ These findings came from applying `v0.1.0` to three public consumers on 2026-08-
 | `rn-typed-assets`              | `react-native` | React Native, JS only |
 | `order-espresso-website`       | `next`         | Next.js               |
 | `react-native-receipt-scanner` | `react-native` | React Native, Kotlin  |
+| `piggon`                       | `next`         | Next.js, ESM, SVG     |
 
 `merry-setup` already covered `baseline` on Shell, so the Python consumer measures a second language against the same overlay rather than the profile itself.
 The two stack profiles had no evidence outside the isolated test script before this run.
-The fourth consumer was added after the first three left `ktlint`, `shellcheck`, and `shfmt` unmeasured.
-Seven public React Native repositories carry both Kotlin and shell files, so targets are not scarce; `react-native-receipt-scanner` was chosen for holding the largest set of each, 23 Kotlin and 9 shell files.
+The last two consumers were added to close what the first three left unmeasured.
+`react-native-receipt-scanner` covers `ktlint`, `shellcheck`, and `shfmt`: seven public React Native repositories carry both Kotlin and shell files, so targets are not scarce, and this one holds the largest set of each at 23 Kotlin and 9 shell files.
+`piggon` covers `svgo`, being the only Next-profile candidate with SVG files.
 
 ## `eslint@SYSTEM` Does Not Resolve a Project-Local ESLint
 
@@ -65,7 +68,14 @@ node@22.22.3  ->  Checked 26 files, 76 lint issues
 Cite `order-espresso-website` in preference to this pair.
 The operator was editing the `toml-tidy` checkout in parallel during both runs, and although the file count matched and CSpell's behavior here is runtime-bound, nothing else was moving in the Next consumer.
 
-Counting `merry-setup`, the engine error now has three consumers and three stacks behind it.
+`piggon` repeated the `order-espresso-website` shape a second time, having enabled `cspell@10.0.1` under `node@22.16.0` on its own:
+
+```log
+node@22.16.0  ->  Checked 180 files, No issues
+node@22.22.3  ->  Checked 180 files, 448 lint issues
+```
+
+Counting `merry-setup`, the engine error now has five consumers behind it, two of which reached the false clean without any involvement from this plugin.
 A consumer that adds the plugin without merging the overlay's runtime keeps its own Node and stays in the false clean, so the runtime line is the part of the overlay that carries the measurement.
 
 ## Trunk Commands Do Not Rewrite the Consumer Config
@@ -81,19 +91,26 @@ The bracketing checksums are what separated the two.
 
 ## The Overlay Fails the Baseline It Ships With
 
-Both stack profiles list `dotenv-linter` under `lint.disabled`, and `dotenv` is absent from `configs/cspell.config.yaml`.
-Merging either profile therefore makes the consumer's own `.trunk/trunk.yaml` fail the CSpell run that the same plugin enables:
+The exported `configs/cspell.config.yaml` shipped an empty `words` list, so every linter name a profile writes into the consumer's `.trunk/trunk.yaml` was an unknown word.
+Merging a profile therefore made that file fail the CSpell run the same plugin enables.
+
+`rn-typed-assets` is the only surveyed consumer with no CSpell configuration of its own, which makes it the only one that reads the exported dictionary unmodified.
+Checking its merged `.trunk/trunk.yaml` named the full set:
 
 ```log
-.trunk/trunk.yaml:23:7  high  Unknown word (dotenv)  cspell/error
+dotenv  gradlew  oxipng  Podfile  shellcheck  shfmt
 ```
 
-It reproduced in both consumers, and neither has a local CSpell dictionary that could have hidden it.
-`react-native-receipt-scanner` merged the same profile and reported nothing, because its `.cspell/custom-dictionary.txt` already carries the word, which is what makes the defect easy to miss: it surfaces only in a consumer without one.
+Six words, not the one that first surfaced.
+Consumers with their own dictionary each hid a different subset: `order-espresso-website` reported only `dotenv`, `piggon` reported only `oxipng`, and `react-native-receipt-scanner` reported nothing at all because its `.cspell/custom-dictionary.txt` covers them.
+That is what made the defect hard to size from any single consumer.
+
 This repository could not have caught it either.
-Its root `cspell.config.yaml` already lists `dotenv` among the project's own words, so self-validation reads the profile through a dictionary no consumer inherits.
-Adding `dotenv` to the exported dictionary is the fix, and it is a plugin change rather than a rollout step, so it is recorded here and has not been applied.
-It joins the shell-vocabulary proposal in [`2026-08-29-first-consumer-adoption.md`](./2026-08-29-first-consumer-adoption.md) as pending dictionary work.
+Its root `cspell.config.yaml` carried those words among the project's own, so self-validation read the profiles through a dictionary no consumer inherits.
+The fix moves all six into the exported config, where the profiles that need them live, and deletes them from the root file so each word has one owner.
+Verified by pointing `rn-typed-assets` at a local plugin source: eight findings before, none after apart from `dongminyu` in the temporary local path itself.
+
+The shell-vocabulary proposal in [`2026-08-29-first-consumer-adoption.md`](./2026-08-29-first-consumer-adoption.md) remains open and is a different problem: those words come from the consumer's own shell code, not from the overlay.
 
 ## Merging the Overlay by Hand Has Two Collision Points
 
@@ -130,8 +147,27 @@ order-espresso-website   Checked 63 files, 3 lint issues, 4 failures (eslint x3,
 
 The `grype` failures belong to each consumer's own pin rather than to the overlay, which neither enables nor disables that linter.
 
-`svgo` remains unmeasured, because `order-espresso-website` holds no SVG files and a pass on an empty target set is not evidence that the linter launches.
-`piggon` is the next target: it takes the same Next profile, carries five SVG files, and its tree was clean at the time of this survey.
+`svgo` was measured last, in `piggon`, which takes the same Next profile and carries five SVG files.
+It failed on every one of them, before the plugin was involved at all:
+
+```log
+ReferenceError: module is not defined in ES module scope
+  at .trunk/configs/svgo.config.js:1:1
+```
+
+`trunk init` writes `.trunk/configs/svgo.config.js` using `module.exports`, and `piggon` sets `"type": "module"` in `package.json`, so Node reads that `.js` file as ESM and SVGO exits 1 on every file.
+Moving the consumer's copy aside let the plugin's exported config answer instead, and the same five files passed:
+
+```log
+consumer .trunk/configs/svgo.config.js  ->  Checked 5 files, 5 failures
+exported configs/svgo.config.mjs        ->  Checked 5 files, No issues
+```
+
+The `.mjs` extension is what fixes it: it declares the module system in the filename, so `"type"` in the consumer's `package.json` cannot reinterpret it.
+This is the first measured case of an exported config being better than what `trunk init` generates rather than merely equivalent to it, and it is invisible until a consumer sets `"type": "module"`.
+
+The consumer's own file still wins by precedence, so adopting the plugin does not repair this on its own.
+`README.md` tells consumers not to overwrite an existing config, which is right for a config someone wrote and wrong for a generated one that cannot load; deleting `.trunk/configs/svgo.config.js` is the step an ESM consumer needs.
 
 The other three were measured in `react-native-receipt-scanner`, which already pinned them at the same versions the profile enables, so the overlay changed only the runtime around them:
 
@@ -155,9 +191,12 @@ The ten commits between `v0.1.0` and the start of this run were documentation on
 git diff --stat v0.1.0..HEAD -- plugin.yaml configs profiles   # empty
 ```
 
-`v0.1.0` therefore still described the plugin payload exactly, and it is on `origin` at `6a147be`, so all three consumers resolved the published artifact rather than a working tree.
+`v0.1.0` therefore still described the plugin payload exactly, and it is on `origin` at `6a147be`, so the first four consumers resolved the published artifact rather than a working tree.
 
-Removing `eslint@SYSTEM` changes what that provenance means rather than breaking anything.
-A tag pins only what `trunk plugins add` resolves, which is `plugin.yaml` and `configs/`, and both are untouched, so no consumer pinned at `v0.1.0` is affected.
-What changed is the overlay a human copies by hand, and "adopted `v0.1.0`" no longer identifies which version of that overlay a consumer holds.
-A tag covering the profile edit is worth cutting for that reason alone.
+The two fixes this run produced differ in how far they reach, and the difference is worth keeping straight.
+
+`v0.2.0` removed `eslint@SYSTEM` from the two stack profiles.
+A tag pins only what `trunk plugins add` resolves, which is `plugin.yaml` and `configs/`, so a consumer sitting at `v0.1.0` was never affected by it; what changed is the overlay a human copies by hand, and the tag exists so "adopted `v0.1.0`" still identifies which overlay a consumer holds.
+
+The dictionary fix is the opposite case.
+`configs/` is exactly what a consumer resolves, so every consumer picks it up on its next run once it moves to the tag that carries it, with no file to copy.
