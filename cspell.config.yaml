@@ -19,6 +19,7 @@ words:
   - esac
   - gradlew
   - ktlint
+  - mirae
   - mktemp
   - oxipng
   - pbxproj
@@ -29,4 +30,5 @@ words:
   - shellcheck
   - shfmt
   - toplevel
+  - ttush
   - worktree

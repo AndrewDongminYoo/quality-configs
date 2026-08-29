@@ -95,18 +95,22 @@ The change would silently disarm every `trunk-ignore(dart/…)` comment already 
 An earlier revision of this note claimed otherwise on the reasoning that Trunk's named output parsers are built into the CLI and that the single-line JSON document defeats a line-oriented regex.
 Neither holds: an `output: regex` definition matches every diagnostic within the one line, and the JSON carries lowercase codes, absolute paths, and uppercase severities that map to the same levels.
 
-Validated against three owned repositories with their packages already resolved, using a local `lint.definitions` override so the consumer configuration replaces the plugin's `analyze` command:
+Validated against four owned repositories with their packages already resolved, using a local `lint.definitions` override so the consumer configuration replaces the plugin's `analyze` command:
 
 ```log
 repository        analysis_options  dart dirs   before      after     invocations
-Flutter game                     1         34    38.97s     4.12s     35 -> 4
-Flutter app                      2         24    14.66s     4.31s     21 -> 2
-analyzer plugins                 4         16    13.65s     9.99s     23 -> 11
+mirae                            8        137   101.60s    14.70s    119 -> 16
+bubble_shooter                   1         34    38.97s     4.12s     35 -> 4
+ttush_push                       2         24    14.66s     4.31s     21 -> 2
+custom_linters                   4         16    13.65s     9.99s     23 -> 11
 ```
+
+`mirae` checked 419 files under both definitions and reported no issues under either, so the 87 seconds it saves are spent on analyzer startup rather than on analysis.
 
 The Flutter app reports 167 issues from its own `very_good_analysis` rules, and the two definitions produce the same 167 with identical files, lines, columns, levels, and rule codes.
 The gain tracks the number of `analysis_options.yaml` files, because that is what still bounds a batch.
 The only user-visible change is that each message loses its trailing correction sentence, since the JSON keeps `correctionMessage` in a separate field that a single capture group cannot reach.
+The upstream linter's own snapshot test confirms the same boundary: regenerating it changes four `message` lines and nothing else, with `code`, `level`, `line`, `column`, `file`, and `issueUrl` byte-identical.
 
 ## Decision
 
