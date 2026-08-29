@@ -22,6 +22,7 @@ words:
   - mktemp
   - oxipng
   - pbxproj
+  - pinact
   - pipefail
   - Podfile
   - ryaml

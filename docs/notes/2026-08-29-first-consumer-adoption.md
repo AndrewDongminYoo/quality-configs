@@ -58,6 +58,20 @@ Running Trunk from a worktree therefore changes the hook path for the primary ch
 Apply a profile in the repository's own checkout.
 A worktree is still useful for reading a resolved configuration, but treat any Trunk invocation there as a write to shared repository state.
 
+## The Plugin Does Not Require `trunk-io/plugins`
+
+A consumer that lists `quality-configs` as its only plugin source resolves the same contract as one that also lists `trunk-io/plugins`: both runtimes, all nine baseline linters, the three actions, and the five exported configs.
+The Trunk CLI carries 99 linter definitions of its own, which cover every linter the baseline and the three stack profiles enable.
+Only `dart`, which the Flutter profile disables, and `pinact`, which no profile uses, are absent from that built-in set.
+
+Resolution alone proves nothing, so the linters were exercised without the second source present.
+CSpell, yamllint, and Prettier each rejected a deliberate violation from `tests/fixtures/violations/`.
+The Flutter profile also resolved on its own, listing an undefined `dart` under `lint.disabled` raised no error, and the Dart code-fence canary failed as expected once `profiles/flutter/prettier.config.mjs` was copied to the consumer root.
+
+Keep the second source anyway.
+The built-in definitions travel with `cli.version`, so a CLI bump would move linter definitions silently, whereas a pinned `ref` keeps that decision explicit.
+`trunk init` also re-adds the source, and consumers that enable a linter outside the built-in set still depend on it.
+
 ## Consumer Findings
 
 The adopted baseline reported 69 CSpell findings and 3 Prettier-unformatted files.
