@@ -23,6 +23,7 @@ words:
   - mktemp
   - oxipng
   - pbxproj
+  - piggon
   - pinact
   - pipefail
   - Podfile

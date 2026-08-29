@@ -41,7 +41,10 @@ dart absent      ->  Checked 0 files, 3 failures, "Some tools failed to run"
 ```
 
 No download happens, the project's own SDK does the work, and a missing SDK fails loudly instead of substituting a different version.
-This is the same shape the React Native and Next profiles already use for `eslint@SYSTEM`.
+
+The React Native and Next profiles used `eslint@SYSTEM` for the same reason when this was written, and it was removed on 2026-08-29 for a difference that matters here: a Dart SDK installs onto `PATH`, while ESLint installs into `node_modules/.bin`, which Trunk never searches.
+The shape is right for a tool the environment puts on `PATH` and wrong for one a package manager puts beside the project.
+See [`2026-08-29-stack-profile-rollout.md`](./2026-08-29-stack-profile-rollout.md).
 
 ## `dart analyze` Degrades Without Saying So
 
