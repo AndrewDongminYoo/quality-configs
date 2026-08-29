@@ -183,6 +183,35 @@ So all three launch, which is what `eslint@SYSTEM` did not.
 The same consumer confirms the ESLint removal.
 Its full gate reported 193 files and 1745 lint issues with an empty `FAILURES` block, and ESLint itself checked 26 files cleanly at the consumer's own `eslint@10.9.1`.
 
+## The Python Pin Was Blocking a Linter, and Raising It Cost Two Things
+
+`linters/toml-tidy/plugin.yaml` declares `runtime: python`, and the package requires Python 3.12 or newer, so under the baseline's `python@3.10.8` pip found no installable distribution at all:
+
+```log
+ERROR: Ignored the following versions that require a different python version:
+       0.1.0 ... 0.4.1 Requires-Python >=3.12
+ERROR: No matching distribution found for toml-tidy==0.4.1
+```
+
+The pin moved to `python@3.14.4`, which is what every surveyed consumer already runs.
+`toml-tidy` then installed and rejected an unsorted TOML fixture, and `checkov` and `yamllint` both stayed clean across 18 files on the new runtime.
+`yamllint` has a canary pair in `scripts/test-plugin.sh` that proves it still rejects a violation; `checkov` does not, so its clean result is unproven in the sense [`2026-08-19-trunk-reuse-findings.md`](./2026-08-19-trunk-reuse-findings.md) means.
+
+The first cost is that `trunk-io/plugins` is now mandatory rather than merely advisable.
+`python@3.14.4` is not in the CLI's built-in runtime definitions, and a configuration naming a runtime no source defines is rejected before any linter runs:
+
+```log
+✖ plugin operations require a valid trunk config
+```
+
+The same file with `python@3.10.8` was accepted, so the version alone decides it.
+
+The second cost surfaced a latent defect in `scripts/test-plugin.sh`.
+It applied a profile with `cp`, which discards the `plugins.sources` block a real consumer keeps, then tried to add the sources back afterwards.
+Under `3.10.8` the built-in definitions covered the gap and the script passed; under `3.14.4` the very command meant to restore the source is the one that fails, because the config is already invalid when it runs.
+The script now merges the sources into the profile instead, which is what `README.md` describes a consumer doing.
+A test that copies where the procedure merges is a lookalike, and it took a runtime the built-in set does not carry to tell the two apart.
+
 ## The Tag This Run Started From, and the One It Requires
 
 The ten commits between `v0.1.0` and the start of this run were documentation only.
