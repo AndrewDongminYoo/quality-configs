@@ -6,9 +6,6 @@ plugins:
   sources:
     - id: quality-configs
       local: .
-    - id: trunk
-      ref: v1.11.0
-      uri: https://github.com/trunk-io/plugins
 lint:
   ignore:
     - linters: [cspell, markdownlint, prettier, svgo, yamllint]

@@ -20,9 +20,15 @@ Consumer-local configuration overrides the remote plugin, so the overlay must re
 A consumer that has none of those entries inherits the contract from the plugin alone; the overlay then keeps `trunk-fmt-pre-commit` explicitly disabled instead of merely absent, so a later `trunk init` or an accepted upgrade prompt cannot reintroduce it.
 This avoids a custom YAML-merging CLI in the initial baseline.
 
-Merge the overlay rather than copying it over the consumer's file.
-The `plugins.sources` block must survive, because `python@3.14.4` is defined by `trunk-io/plugins` and not by the CLI's built-in set; a configuration naming a runtime no source defines is rejected before any linter runs.
-`trunk init` writes that source, so a consumer that keeps it needs no extra step.
+Merge the overlay rather than copying it over the consumer's file, so the `plugins.sources` block survives.
+`python@3.14.4` is absent from the CLI's built-in runtime definitions, and a configuration naming a runtime no source defines is rejected before any linter runs.
+This plugin bundles [`runtimes/python`](./runtimes/python/plugin.yaml) so it can supply that version itself, which means a consumer may keep `trunk-io/plugins` or drop it.
+
+Dropping it is what makes the bundled linter definitions in [`linters/`](./linters) take effect.
+Trunk discovers those by directory, but an external source using the same name wins, and `trunk-io/plugins` defines both names this plugin bundles.
+
+A consumer that drops the source must write this plugin into `plugins.sources` in the same edit that pins the runtime.
+`trunk plugins add` needs a configuration it can already resolve, so it cannot bootstrap a profile whose runtime only this plugin defines.
 
 ## Universal Baseline
 

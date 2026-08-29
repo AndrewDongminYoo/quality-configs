@@ -22,13 +22,15 @@ Removing the repeated `actions` block from a profile silently re-enables the gen
 
 ## Version Pins Move Together
 
-A linter or runtime version appears in three independent places, and all three must change in the same commit:
+A linter or runtime version appears in four independent places, and all four must change in the same commit:
 
 1. `plugin.yaml` under `lint.enabled` and `runtimes.enabled`.
 2. Each `profiles/*/trunk.yaml` that re-declares the same tool.
 3. The hardcoded `expected_linters` and `expected_runtimes` arrays inside the Ruby block in `scripts/test-plugin.sh`.
+4. `runtimes/python/plugin.yaml`, which pins the same version twice: `known_good_version` and the `version:` bound on its single download entry.
 
 Bumping the plugin alone fails the script; changing the script alone produces a vacuous pass.
+Moving the Python pin without the fourth location produces neither, because the bundled runtime keeps resolving the version it declares and the mismatch surfaces only in a consumer that dropped `trunk-io/plugins`.
 `cli.version` has the same shape across the four profiles and `.trunk/trunk.yaml`, and must stay compatible with `required_trunk_version` in `plugin.yaml`.
 
 ## Every New Linter Needs a Canary Pair

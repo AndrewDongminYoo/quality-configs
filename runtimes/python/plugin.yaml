@@ -1,0 +1,80 @@
+# Extracted from trunk-io/plugins v1.11.0 runtimes/python/plugin.yaml.
+# Copyright (c) 2022 Trunk Technologies, Inc. MIT License.
+#
+# Only the download entry covering the pinned version is kept, so this plugin
+# supplies python@3.14.4 on its own and a consumer can drop the
+# trunk-io/plugins source. A consumer that needs a different Python version
+# should add that source back, which also restores the upstream definitions of
+# every linter this plugin bundles.
+# cspell:words isort,msvc,pydoc3,PYTHONUTF8,SYSTEMROOT
+version: 0.1
+downloads:
+  - name: python
+    downloads:
+      - os:
+          linux: unknown-linux-gnu
+          macos: apple-darwin
+          windows: pc-windows-msvc
+        cpu:
+          x86_64: x86_64
+          arm_64: aarch64
+        version: <=3.14.4
+        url: https://github.com/astral-sh/python-build-standalone/releases/download/20260414/cpython-${version}+20260414-${cpu}-${os}-install_only.tar.gz
+        strip_components: 1
+
+runtimes:
+  definitions:
+    - type: python
+      download: python
+      runtime_environment:
+        - name: HOME
+          value: ${env.HOME:-}
+        - name: SYSTEMROOT
+          value: ${env.SYSTEMROOT}
+          optional: true
+        - name: PATH
+          list:
+            - "${runtime}/bin"
+            - "${runtime}" # Windows places binaries here instead of bin/
+        - name: http_proxy
+          value: ${env.http_proxy}
+          optional: true
+        - name: https_proxy
+          value: ${env.https_proxy}
+          optional: true
+        - name: REQUESTS_CA_BUNDLE
+          value: ${env.REQUESTS_CA_BUNDLE}
+          optional: true
+        - name: PIP_CERT
+          value: ${env.PIP_CERT}
+          optional: true
+        - name: PYTHONUTF8 # Necessary for isort and our custom parsers on Windows
+          value: 1
+      linter_environment:
+        - name: PATH
+          list:
+            - "${linter}/bin"
+            - "${linter}/Scripts" # Windows places binaries here instead of bin/
+        - name: VIRTUAL_ENV
+          value: ${linter}
+        - name: http_proxy
+          value: ${env.http_proxy}
+          optional: true
+        - name: https_proxy
+          value: ${env.https_proxy}
+          optional: true
+        - name: REQUESTS_CA_BUNDLE
+          value: ${env.REQUESTS_CA_BUNDLE}
+          optional: true
+      known_good_version: 3.14.4
+      version_commands:
+        - run: python3 --version
+          parse_regex: Python ${semver}
+      shims:
+        - python3
+        - pip3
+        - pydoc3
+        - python3-config
+        - pip
+        - name: python
+          target: python3
