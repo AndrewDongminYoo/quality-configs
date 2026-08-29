@@ -72,10 +72,9 @@ Keep the second source anyway.
 The built-in definitions travel with `cli.version`, so a CLI bump would move linter definitions silently, whereas a pinned `ref` keeps that decision explicit.
 `trunk init` also re-adds the source, and consumers that enable a linter outside the built-in set still depend on it.
 
-That advice became a requirement later the same day.
-Raising the Python pin to `3.14.4` made the second source mandatory: the built-in set carries `python@3.10.8` but not `3.14.4`, and a configuration naming a runtime no source defines is rejected outright, before any linter runs.
-The measurement above still holds for the versions it named; the heading no longer does.
-See [`2026-08-29-stack-profile-rollout.md`](./2026-08-29-stack-profile-rollout.md).
+Raising the Python pin to `3.14.4` briefly made the second source mandatory, because the built-in set carries `python@3.10.8` but not `3.14.4`.
+Bundling `runtimes/python` in this plugin removed that dependency again, so the heading holds for the reason it always did, now including the runtime.
+See [`2026-08-29-stack-profile-rollout.md`](./2026-08-29-stack-profile-rollout.md), which also records why dropping the second source is what the bundled linter definitions need.
 
 ## Consumer Findings
 
