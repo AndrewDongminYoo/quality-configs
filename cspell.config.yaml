@@ -23,7 +23,10 @@ words:
   - piggon
   - pinact
   - pipefail
+  - pubspec
+  - pyproject
   - ryaml
+  - taplo
   - toplevel
   - ttush
   - worktree
