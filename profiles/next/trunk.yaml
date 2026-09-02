@@ -15,7 +15,7 @@ lint:
     - prettier@3.9.6:
         packages:
           - prettier-plugin-tailwindcss@0.8.1
-    - svgo@4.0.2
+    - svgo@4.1.0
 
 actions:
   disabled:

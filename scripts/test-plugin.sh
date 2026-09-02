@@ -52,8 +52,8 @@ assert_resolved_baseline() {
     abort "resolved config was not a mapping" unless data.is_a?(Hash)
     expected_linters = %w[
       actionlint@1.7.12
-      checkov@3.3.8
-      cspell@10.0.1
+      checkov@3.3.16
+      cspell@10.2.0
       git-diff-check
       markdownlint@0.49.1
       osv-scanner@2.4.0
