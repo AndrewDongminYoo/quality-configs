@@ -57,7 +57,7 @@ To evaluate a local checkout before a release, add it to an initialized test rep
 ```bash
 trunk init
 # Merge profiles/baseline/trunk.yaml into .trunk/trunk.yaml.
-trunk plugins add /Volumes/dongminyu/Development/01_personal/quality-configs --id=quality-configs
+trunk plugins add <absolute-path-to-this-checkout> --id=quality-configs
 trunk config print
 ```
 
