@@ -11,10 +11,9 @@ mkdir -p "$plugin_root"
 cp "$repo_root/plugin.yaml" "$plugin_root/plugin.yaml"
 cp -R "$repo_root/configs" "$plugin_root/configs"
 # Trunk discovers linters/<name>/plugin.yaml and runtimes/<name>/plugin.yaml on
-# its own, so the staged copy must carry them or the test resolves a different
-# plugin than consumers get. The standalone scenario below is what proves the
-# runtimes copy landed; the linters copy has no assertion, because both bundled
-# names also exist in trunk-io/plugins, which wins a name collision.
+# its own. The staged copy must carry them, or the test resolves a different
+# plugin than consumers get. The standalone scenario removes trunk-io/plugins
+# so the bundled definitions win each name collision.
 cp -R "$repo_root/linters" "$plugin_root/linters"
 cp -R "$repo_root/runtimes" "$plugin_root/runtimes"
 
@@ -55,8 +54,10 @@ assert_resolved_baseline() {
       checkov@3.3.16
       cspell@10.2.0
       git-diff-check
+      grype@0.110.0
       markdownlint@0.49.1
       osv-scanner@2.4.0
+      pinact@4.0.0
       prettier@3.9.6
       trufflehog@3.96.0
       yamllint@1.38.0
@@ -110,12 +111,41 @@ apply_profile() {
 expect_failure() {
   local linter_id=$1
   local target_file=$2
+  local expected_issue=${3:-}
+  local expected_message=${4:-}
+  local expected_location=${5:-}
+  local output_file="$test_root/${linter_id//\//-}-failure.log"
 
   git add -- "$target_file"
-  if trunk check --no-fix --no-progress --print-failures --verbose --filter="$linter_id" "$target_file"; then
+  if trunk check --no-fix --no-progress --color=false --print-failures --verbose --filter="$linter_id" "$target_file" 2>&1 | tee "$output_file"; then
     find .trunk/out -maxdepth 1 -type f -name '*.yaml' -print -exec sed -n '1,240p' {} \;
     find .trunk/logs -maxdepth 2 -type f -print -exec tail -n 160 {} \;
     printf 'Expected %s to reject %s\n' "$linter_id" "$target_file" >&2
+    exit 1
+  fi
+
+  if ! grep -Eq '(^|[^0-9])[1-9][0-9]* (new |existing )?(lint|security) issues?' "$output_file"; then
+    printf '%s rejected %s without reporting a lint or security issue\n' "$linter_id" "$target_file" >&2
+    exit 1
+  fi
+
+  if grep -Eq 'Some tools failed to run|(^|[^0-9])[1-9][0-9]* failures?' "$output_file"; then
+    printf '%s rejected %s because a tool failed\n' "$linter_id" "$target_file" >&2
+    exit 1
+  fi
+
+  if [[ -n "$expected_issue" ]] && ! grep -Fq -- "$expected_issue" "$output_file"; then
+    printf '%s rejected %s without the expected issue marker: %s\n' "$linter_id" "$target_file" "$expected_issue" >&2
+    exit 1
+  fi
+
+  if [[ -n "$expected_message" ]] && ! grep -Fq -- "$expected_message" "$output_file"; then
+    printf '%s rejected %s without the expected message: %s\n' "$linter_id" "$target_file" "$expected_message" >&2
+    exit 1
+  fi
+
+  if [[ -n "$expected_location" ]] && ! grep -Fq -- "$expected_location:" "$output_file"; then
+    printf '%s rejected %s without reporting the expected location: %s\n' "$linter_id" "$target_file" "$expected_location" >&2
     exit 1
   fi
 }
@@ -126,6 +156,45 @@ expect_success() {
 
   git add -- "$target_file"
   trunk check --no-fix --no-progress --filter="$linter_id" "$target_file"
+}
+
+expect_format_failure() {
+  local linter_id=$1
+  local target_file=$2
+  local output_file="$test_root/${linter_id//\//-}-format-failure.log"
+
+  git add -- "$target_file"
+  if trunk fmt --no-fix --diff=full --no-progress --color=false --filter="$linter_id" "$target_file" 2>&1 | tee "$output_file"; then
+    printf 'Expected %s to reject the formatting of %s\n' "$linter_id" "$target_file" >&2
+    exit 1
+  fi
+
+  if ! grep -Eq '(^|[^0-9])[1-9][0-9]* (new |existing )?unformatted files?' "$output_file"; then
+    printf '%s rejected %s without reporting an unformatted file\n' "$linter_id" "$target_file" >&2
+    exit 1
+  fi
+
+  if grep -Eq 'Some tools failed to run|(^|[^0-9])[1-9][0-9]* failures?' "$output_file"; then
+    printf '%s rejected %s because a tool failed\n' "$linter_id" "$target_file" >&2
+    exit 1
+  fi
+}
+
+expect_format_success() {
+  local linter_id=$1
+  local target_file=$2
+
+  git add -- "$target_file"
+  trunk fmt --no-fix --no-progress --filter="$linter_id" "$target_file"
+}
+
+assert_generated_output_contains() {
+  local expected_text=$1
+
+  if ! grep -Fq -- "$expected_text" .trunk/out/*.yaml; then
+    printf 'Generated Trunk output did not contain: %s\n' "$expected_text" >&2
+    exit 1
+  fi
 }
 
 baseline_root="$test_root/baseline"
@@ -148,9 +217,9 @@ initialize_repository "$baseline_root"
   expect_success markdownlint markdown.md
 
   cp "$repo_root/tests/fixtures/violations/prettier.json" format.json
-  expect_failure prettier format.json
+  expect_format_failure prettier format.json
   cp "$repo_root/tests/fixtures/clean/data.json" format.json
-  expect_success prettier format.json
+  expect_format_success prettier format.json
 
   cp "$repo_root/tests/fixtures/violations/yamllint.yaml" lint.yaml
   expect_failure yamllint lint.yaml
@@ -185,10 +254,52 @@ awk -v id="$plugin_id" -v path="$plugin_root" '
     inserted = 1
   }
   { print }
+  END {
+    print ""
+    print "lint:"
+    print "  enabled:"
+    print "    - dart@3.10.8"
+    print "    - grype@0.110.0"
+    print "    - osv-scanner@2.4.0"
+    print "    - pinact@4.0.0"
+    print "    - toml-tidy@0.4.1"
+  }
 ' "$repo_root/profiles/baseline/trunk.yaml" >"$standalone_root/.trunk/trunk.yaml"
 (
   cd "$standalone_root"
   trunk config print --no-progress --color=false >/dev/null
+
+  mkdir -p lib
+  cp "$repo_root/tests/fixtures/violations/main.dart" lib/main.dart
+  expect_failure dart lib/main.dart dart/undefined_identifier
+  assert_generated_output_contains 'analyze --no-fatal-warnings --format=json'
+  cp "$repo_root/tests/fixtures/clean/main.dart" lib/main.dart
+  expect_success dart lib/main.dart
+
+  cp "$repo_root/tests/fixtures/violations/pyproject.toml" pyproject.toml
+  expect_format_failure toml-tidy pyproject.toml
+  cp "$repo_root/tests/fixtures/clean/pyproject.toml" pyproject.toml
+  expect_format_success toml-tidy pyproject.toml
+
+  mkdir -p .github/actions/fixture
+  cp "$repo_root/tests/fixtures/violations/action.yaml" .github/actions/fixture/action.yaml
+  export PINACT_DISABLE_GH_AUTH=1
+  expect_failure pinact .github/actions/fixture/action.yaml pinact/parse-error "action can't be pinned"
+  assert_generated_output_contains '/plugin/linters/pinact/pinact_run.py'
+  cp "$repo_root/tests/fixtures/clean/action.yaml" .github/actions/fixture/action.yaml
+  expect_success pinact .github/actions/fixture/action.yaml
+  unset PINACT_DISABLE_GH_AUTH
+
+  cp "$repo_root/tests/fixtures/violations/Gemfile.lock" Gemfile.lock
+  expect_failure grype Gemfile.lock grype/ "vulnerability in gem package: rack" Gemfile.lock
+  assert_generated_output_contains '/plugin/linters/grype/grype_to_sarif.py'
+  cp "$repo_root/tests/fixtures/clean/Gemfile.lock" Gemfile.lock
+  expect_success grype Gemfile.lock
+
+  cp "$repo_root/tests/fixtures/violations/Gemfile.lock" Gemfile.lock
+  expect_failure osv-scanner Gemfile.lock osv-scanner/ "Current version is vulnerable: 2.2.6.2." Gemfile.lock
+  cp "$repo_root/tests/fixtures/clean/Gemfile.lock" Gemfile.lock
+  expect_success osv-scanner Gemfile.lock
 )
 
 for profile_name in flutter react-native next; do
@@ -210,23 +321,23 @@ flutter_root="$test_root/profile-flutter"
 (
   cd "$flutter_root"
   cp "$repo_root/tests/fixtures/violations/markdown-dart.md" dart.md
-  expect_failure prettier dart.md
+  expect_format_failure prettier dart.md
   cp "$repo_root/tests/fixtures/clean/markdown-dart.md" dart.md
-  expect_success prettier dart.md
+  expect_format_success prettier dart.md
 )
 
 next_root="$test_root/profile-next"
 (
   cd "$next_root"
   cp "$repo_root/tests/fixtures/violations/svgo.svg" optimize.svg
-  expect_failure svgo optimize.svg
+  expect_format_failure svgo optimize.svg
   trunk fmt --no-progress --filter=svgo optimize.svg
-  expect_success svgo optimize.svg
+  expect_format_success svgo optimize.svg
 
   cp "$repo_root/tests/fixtures/violations/tailwind.jsx" tailwind.jsx
-  expect_failure prettier tailwind.jsx
+  expect_format_failure prettier tailwind.jsx
   cp "$repo_root/tests/fixtures/clean/tailwind.jsx" tailwind.jsx
-  expect_success prettier tailwind.jsx
+  expect_format_success prettier tailwind.jsx
 )
 
 printf 'Plugin and profile verification passed.\n'

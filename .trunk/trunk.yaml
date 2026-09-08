@@ -8,7 +8,8 @@ plugins:
       local: .
 lint:
   ignore:
-    - linters: [cspell, markdownlint, prettier, svgo, yamllint]
+    - linters:
+        [cspell, grype, markdownlint, osv-scanner, prettier, svgo, yamllint]
       paths:
         - tests/fixtures/**
     - linters: [prettier]

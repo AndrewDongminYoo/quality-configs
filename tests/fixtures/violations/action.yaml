@@ -1,0 +1,6 @@
+name: Unpinned composite action
+description: Exercise an unpinned action reference
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4

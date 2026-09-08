@@ -1,0 +1,278 @@
+#!/usr/bin/env python3
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+SARIF_SCHEMA = (
+    "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/"
+    "Schemata/sarif-schema-2.1.0.json"
+)
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+
+# pinact uses 1/2 when SARIF findings exist; empty stdout means it failed before emitting SARIF.
+PINACT_SARIF_EXIT_CODES = (1, 2)
+CONFIG_ERROR_RULE_ID = "config-error"
+
+
+def resolve_executable(name: str) -> str | None:
+    return shutil.which(name)
+
+
+def require_executable(name: str) -> str:
+    path = resolve_executable(name)
+    if path is None:
+        print(f"{name} not found in PATH", file=sys.stderr)
+        raise SystemExit(127)
+    return path
+
+
+def validate_targets(paths: list[str]) -> list[str]:
+    validated: list[str] = []
+    for path in paths:
+        target = Path(path)
+        if not target.exists():
+            print(f"target not found: {path}", file=sys.stderr)
+            raise SystemExit(2)
+        validated.append(str(target.resolve()))
+    return validated
+
+
+def gh_auth_token() -> str | None:
+    gh = resolve_executable("gh")
+    if gh is None:
+        return None
+
+    try:
+        result = subprocess.run(
+            [gh, "auth", "token"],
+            shell=False,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+
+    if result.returncode != 0:
+        return None
+
+    token = result.stdout.strip()
+    return token or None
+
+
+def configure_token_env() -> None:
+    github_token = os.environ.get("GITHUB_TOKEN")
+    pinact_github_token = os.environ.get("PINACT_GITHUB_TOKEN")
+    gh_token = os.environ.get("GH_TOKEN")
+
+    if not github_token and gh_token:
+        os.environ["GITHUB_TOKEN"] = gh_token
+        github_token = gh_token
+
+    if not pinact_github_token and github_token:
+        os.environ["PINACT_GITHUB_TOKEN"] = github_token
+
+    if not os.environ.get("GITHUB_TOKEN") and not os.environ.get("PINACT_GITHUB_TOKEN"):
+        if not os.environ.get("PINACT_DISABLE_GH_AUTH"):
+            token = gh_auth_token()
+            if token:
+                os.environ["GITHUB_TOKEN"] = token
+                os.environ["PINACT_GITHUB_TOKEN"] = token
+
+
+def has_github_token() -> bool:
+    return bool(os.environ.get("GITHUB_TOKEN") or os.environ.get("PINACT_GITHUB_TOKEN"))
+
+
+def build_pinact_args(mode: str) -> list[str]:
+    args = ["pinact", "run", "-format", "sarif"]
+    if mode == "upgrade":
+        # -update bumps to latest semver; SARIF suggestions only (Trunk applies fixes).
+        args.extend(["-update"])
+        return args
+
+    # SARIF output implies -fix=false; let Trunk apply fixes from SARIF suggestions.
+    if os.environ.get("PINACT_DISABLE_GH_AUTH"):
+        args.append("-no-api")
+    elif has_github_token():
+        args.append("-verify-comment")
+    else:
+        args.append("-no-api")
+    return args
+
+
+def normalize_fix_regions(sarif_text: str) -> str:
+    """Backfill a concrete line end on pinact's SARIF fix regions.
+
+    pinact emits each replacement's ``deletedRegion`` without an end column
+    (typically just ``{"startLine": N}``). Trunk's fix applier reads a region
+    with no explicit end as a zero-width insertion point, so it *prepends* the
+    pinned ``uses:`` and never deletes the original line — concatenating both
+    onto one line. Backfill only what's missing — preserving any explicit
+    ``startColumn``/``endLine`` — so the region carries a concrete end
+    (``endColumn`` at the end of its end line) that Trunk replaces rather than
+    inserts, matching the fully-specified regions the ruff/sqlfluff converters
+    already rely on. Regions that already carry an ``endColumn`` or an
+    offset-based span (``charOffset``/``charLength``) are left untouched.
+    """
+    try:
+        sarif = json.loads(sarif_text)
+    except (json.JSONDecodeError, TypeError):
+        return sarif_text
+
+    line_cache: dict[str, list[str]] = {}
+
+    def lines_for(uri: str) -> list[str] | None:
+        if uri not in line_cache:
+            try:
+                line_cache[uri] = Path(uri).read_text(encoding="utf-8").splitlines()
+            except OSError:
+                line_cache[uri] = []
+        return line_cache[uri] or None
+
+    for run in sarif.get("runs", []):
+        for result in run.get("results", []):
+            for fix in result.get("fixes", []):
+                for change in fix.get("artifactChanges", []):
+                    uri = change.get("artifactLocation", {}).get("uri")
+                    if not uri:
+                        continue
+                    for replacement in change.get("replacements", []):
+                        region = replacement.get("deletedRegion")
+                        if not region or "startLine" not in region:
+                            continue
+                        # An explicit end column or an offset-based span is
+                        # unambiguous — Trunk applies it as-is, so leave it alone.
+                        if any(
+                            key in region
+                            for key in ("endColumn", "charOffset", "charLength")
+                        ):
+                            continue
+                        lines = lines_for(uri)
+                        if lines is None:
+                            continue
+                        start_index = region["startLine"] - 1
+                        end_line = region.get("endLine", region["startLine"])
+                        end_index = end_line - 1
+                        if not 0 <= start_index < len(
+                            lines
+                        ) or not 0 <= end_index < len(lines):
+                            continue
+                        # Preserve any explicit start/end line; only backfill what's
+                        # missing so the region carries a concrete end (end of its end
+                        # line) that Trunk won't read as a zero-width insert.
+                        region.setdefault("startColumn", 1)
+                        region["endLine"] = end_line
+                        region["endColumn"] = len(lines[end_index]) + 1
+
+    return json.dumps(sarif, indent=2)
+
+
+def strip_ansi(text: str) -> str:
+    return ANSI_ESCAPE.sub("", text)
+
+
+def parse_pinact_stderr(stderr: str) -> str:
+    clean = strip_ansi(stderr).strip()
+    if not clean:
+        return "pinact failed"
+
+    match = re.search(r'error="((?:\\.|[^"\\])*)"', clean)
+    if match:
+        return match.group(1).encode("utf-8").decode("unicode_escape").strip()
+
+    if "error=" in clean:
+        return clean.split("error=", 1)[1].strip().strip('"')
+
+    return clean
+
+
+def build_failure_sarif(target: str, message: str) -> str:
+    sarif = {
+        "$schema": SARIF_SCHEMA,
+        "version": "2.1.0",
+        "runs": [
+            {
+                "results": [
+                    {
+                        "ruleId": CONFIG_ERROR_RULE_ID,
+                        "level": "error",
+                        "message": {"text": message},
+                        "locations": [
+                            {
+                                "physicalLocation": {
+                                    "artifactLocation": {"uri": target},
+                                    "region": {
+                                        "startLine": 1,
+                                        "startColumn": 1,
+                                    },
+                                }
+                            }
+                        ],
+                    }
+                ]
+            }
+        ],
+    }
+    return json.dumps(sarif, indent=2)
+
+
+def sarif_for_pinact_failure(stderr: str, targets: list[str]) -> str:
+    return build_failure_sarif(
+        targets[0] if targets else ".",
+        parse_pinact_stderr(stderr),
+    )
+
+
+def run_pinact(mode: str, targets: list[str]) -> int:
+    pinact = require_executable("pinact")
+    result = subprocess.run(
+        [pinact, *build_pinact_args(mode)[1:], *validate_targets(targets)],
+        shell=False,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    stdout = result.stdout
+    stderr = result.stderr
+    returncode = result.returncode
+
+    if returncode in PINACT_SARIF_EXIT_CODES and not stdout.strip():
+        sarif = sarif_for_pinact_failure(stderr, targets)
+        sys.stdout.write(sarif)
+        if not sarif.endswith("\n"):
+            sys.stdout.write("\n")
+        return 2
+
+    if stdout:
+        normalized = normalize_fix_regions(stdout)
+        sys.stdout.write(normalized)
+        if not normalized.endswith("\n"):
+            sys.stdout.write("\n")
+    if stderr:
+        sys.stderr.write(stderr)
+        if not stderr.endswith("\n"):
+            sys.stderr.write("\n")
+
+    return returncode
+
+
+def main() -> int:
+    configure_token_env()
+
+    argv = sys.argv[1:]
+    mode = "lint"
+    if argv and argv[0] == "--upgrade":
+        mode = "upgrade"
+        argv = argv[1:]
+
+    return run_pinact(mode, argv)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
