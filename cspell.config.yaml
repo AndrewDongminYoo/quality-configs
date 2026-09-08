@@ -6,27 +6,13 @@ useGitignore: true
 enableGlobDot: true
 ignorePaths:
   - .git
+dictionaryDefinitions:
+  - name: custom-dictionary
+    path: ./.cspell/custom-dictionary.txt
+    addWords: true
 dictionaries:
   - filetypes
   - fonts
   - softwareTerms
-words:
-  - cntrl
-  - Dongmin
-  - dongminyu
-  - elif
-  - esac
-  - ktlint
-  - mirae
-  - mktemp
-  - pbxproj
-  - piggon
-  - pinact
-  - pipefail
-  - pubspec
-  - pyproject
-  - ryaml
-  - taplo
-  - toplevel
-  - ttush
-  - worktree
+  - custom-dictionary
+words: []
