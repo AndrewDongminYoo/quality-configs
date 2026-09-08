@@ -25,7 +25,10 @@ Merge the overlay rather than copying it over the consumer's file, so the `plugi
 This plugin bundles [`runtimes/python`](./runtimes/python/plugin.yaml) so it can supply that version itself, which means a consumer may keep `trunk-io/plugins` or drop it.
 
 Dropping it is what makes the bundled linter definitions in [`linters/`](./linters) take effect.
-Trunk discovers those by directory, but an external source using the same name wins, and `trunk-io/plugins` defines both names this plugin bundles.
+Trunk discovers those definitions by directory, but an external source that uses the same name wins.
+The bundled definitions provide `dart` and `toml-tidy` changes that are not yet available upstream.
+They also preserve `pinact`, `grype`, and the current `osv-scanner` download definition when a consumer drops `trunk-io/plugins`.
+The bundled [`linters/plugin.yaml`](./linters/plugin.yaml) provides the `github-actions` file type that `pinact` uses for composite actions.
 
 A consumer that drops the source must write this plugin into `plugins.sources` in the same edit that pins the runtime.
 `trunk plugins add` needs a configuration it can already resolve, so it cannot bootstrap a profile whose runtime only this plugin defines.
@@ -38,8 +41,10 @@ The plugin enables:
 - `checkov`
 - `cspell`
 - `git-diff-check`
+- `grype`
 - `markdownlint`
 - `osv-scanner`
+- `pinact`
 - `prettier`
 - `trufflehog`
 - `yamllint`
@@ -132,6 +137,8 @@ The adoption evidence from the first consumer is recorded in [`docs/notes/2026-0
 - [Exported configs](https://docs.trunk.io/code-quality/overview/getting-started/configuration/plugins/exported-configs)
 - [Trunk shared configs](https://docs.trunk.io/code-quality/overview/linters/shared-configs)
 - [`trunk-io/configs`](https://github.com/trunk-io/configs)
+- [`pinact`](https://github.com/suzuki-shunsuke/pinact)
+- [`grype`](https://github.com/anchore/grype)
 - [Prettier configuration](https://prettier.io/docs/configuration)
 - [Prettier plugins](https://prettier.io/docs/plugins)
 - [`prettier-plugin-markdown-dart`](https://github.com/AndrewDongminYoo/prettier-plugin-markdown-dart)
@@ -147,4 +154,7 @@ Run the isolated plugin and profile proof:
 ./scripts/test-plugin.sh
 ```
 
-The script creates repositories only under a validated temporary directory, commits test fixtures there so Trunk has a real Git baseline, adds this checkout as a local plugin, exercises intentional violations, and removes the temporary directory on exit.
+The script creates repositories only under a validated temporary directory.
+It commits test fixtures so Trunk has a real Git baseline and adds this checkout as a local plugin.
+The standalone scenario removes `trunk-io/plugins` and exercises failure and success fixtures for each bundled linter.
+The script removes the temporary directory on exit.
