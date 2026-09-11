@@ -52,6 +52,35 @@ The plugin enables:
 It exports shared configuration for Markdownlint, CSpell, Prettier, SVGO, and yamllint.
 SVGO is exported but is only enabled by the Next profile.
 
+### Shared CSpell Vocabulary
+
+[`configs/cspell.config.yaml`](./configs/cspell.config.yaml) contains the shared technical allowlist.
+A term enters this list only when the configured CSpell dictionaries still reject it and source files in at least three personal repositories use it.
+Project names, personal identifiers, secrets, generated identifiers, and one-off exceptions remain consumer-local.
+
+Consumers without a local CSpell config receive the allowlist through the exported config.
+A consumer with a local config must import the released shared config explicitly because its local config takes precedence over the exported config:
+
+```yaml
+version: "0.2"
+import:
+  - https://raw.githubusercontent.com/AndrewDongminYoo/quality-configs/<release-tag-or-sha>/configs/cspell.config.yaml
+```
+
+Use an immutable release tag or commit SHA in the URL.
+Do not reference `main`.
+
+[`configs/cspell/vgv.config.yaml`](./configs/cspell/vgv.config.yaml) is an optional Very Good Dictionaries policy layer.
+It pins the upstream allowed and forbidden dictionaries to a commit and keeps `deeplinking` and `meta-data` forbidden except in `AndroidManifest.xml`.
+Import it after the shared config only when the consumer has chosen that spelling policy:
+
+```yaml
+version: "0.2"
+import:
+  - https://raw.githubusercontent.com/AndrewDongminYoo/quality-configs/<release-tag-or-sha>/configs/cspell.config.yaml
+  - https://raw.githubusercontent.com/AndrewDongminYoo/quality-configs/<release-tag-or-sha>/configs/cspell/vgv.config.yaml
+```
+
 The plugin enables the non-formatting `trunk-check-pre-push` gate and update notifications.
 It deliberately does not enable `trunk-fmt-pre-commit`; preview formatter changes before opting into automatic mutation in a consumer repository.
 
