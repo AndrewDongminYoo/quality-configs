@@ -33,6 +33,8 @@ Examples with strong recurrence include `oxipng` in 48 repositories, `worktree` 
 The implementation also admitted `gsub` after a separate scan found it in five repositories.
 It admitted `deeplinking` as the name of the centrally managed forbidden-word exception.
 The optional VGV layer still forbids that term outside the Android manifest override.
+A follow-up scan admitted `gitmoji` and `pinact` after source files used them in four and nineteen Flutter or Dart repositories.
+CSpell 10.2.0 still reported both terms with the selected bundled dictionaries enabled.
 
 The scan rejected terms that appeared only in copied dictionaries or in fewer than three source repositories.
 Examples include `arpeggiating`, `burstiest`, `counterable`, `GAID`, `Instantitation`, `monetizable`, `seedable`, and `unsymbolicated`.
