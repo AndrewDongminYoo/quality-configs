@@ -1,0 +1,19 @@
+version: "0.2"
+$schema: https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json
+dictionaryDefinitions:
+  - name: vgv_allowed
+    path: https://raw.githubusercontent.com/verygoodopensource/very_good_dictionaries/ce6df4f628bbf130b3d6d8ed9637553653fce7db/allowed.txt
+    description: Allowed VGV spellings
+    addWords: false
+  - name: vgv_forbidden
+    path: https://raw.githubusercontent.com/verygoodopensource/very_good_dictionaries/ce6df4f628bbf130b3d6d8ed9637553653fce7db/forbidden.txt
+    description: Forbidden VGV spellings
+    addWords: false
+dictionaries:
+  - vgv_allowed
+  - vgv_forbidden
+overrides:
+  - filename: "**/AndroidManifest.xml"
+    ignoreWords:
+      - deeplinking
+      - meta-data

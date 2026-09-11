@@ -10,10 +10,96 @@ ignorePaths:
   - "**/android/gradlew"
   - "**/example/android/gradlew"
 words:
+  - AAID
+  - adid
+  - ADMOB
+  - allprojects
+  - appbundle
+  - APPL
+  - applinks
+  - assetcatalog
+  - assetlinks
+  - audioplayer
+  - buildconfiguration
+  - buildlog
+  - CFLAGS
+  - codegraph
+  - crossfade
+  - dblite
+  - deeplinking
+  - dgph
+  - dists
   - dotenv
+  - enabledplugins
+  - felixangelov
+  - flutterfire
+  - FMWK
+  - geistmono
+  - getenv
+  - googleplay
   - gradlew
+  - gsub
+  - headlessly
+  - HIDPI
+  - IDFA
+  - IHDR
+  - imagegen
+  - INFOPLIST
+  - inspectable
+  - IPHONEOS
+  - jarfile
+  - jvmargs
+  - keytool
+  - libc
+  - LLDB
+  - lldbinit
+  - lockfiles
+  - lproj
+  - magick
+  - miniaturizable
+  - MSGSEND
+  - notosanskr
+  - Onone
+  - ORGANIZATIONNAME
   - oxipng
+  - parallelizable
+  - pbxproj
+  - pbxuser
+  - PKIX
+  - plutil
   - Podfile
+  - pointsize
+  - postcoverage
+  - printcert
+  - proguard
+  - roundrectangle
+  - RUNPATH
+  - sconsign
   - shellcheck
   - shfmt
+  - SRCROOT
+  - srgba
+  - strobing
+  - subosito
+  - substep
+  - subviews
+  - swiftpm
+  - symbolicate
+  - Symbolication
+  - Testables
+  - timebox
+  - UNCONFIGURED
+  - UNLOCALIZED
+  - Wconditional
+  - wght
+  - wholemodule
+  - Wmissing
+  - Wnullable
+  - worktree
+  - worktrees
+  - Woverlength
+  - xcarchive
+  - xcfilelist
+  - xcprivacy
+  - xcuserdata
 ignoreWords: []

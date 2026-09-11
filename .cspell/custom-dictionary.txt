@@ -13,12 +13,10 @@ graphqls
 GHSA
 haml
 ktlint
-lockfiles
 mirae
 mktemp
 nextline
 pbtxt
-pbxproj
 pcss
 phar
 piggon
@@ -44,4 +42,3 @@ ttush
 txtpb
 vulns
 webp
-worktree

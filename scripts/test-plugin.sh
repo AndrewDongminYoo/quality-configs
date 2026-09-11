@@ -117,7 +117,7 @@ expect_failure() {
   local output_file="$test_root/${linter_id//\//-}-failure.log"
 
   git add -- "$target_file"
-  if trunk check --no-fix --no-progress --color=false --print-failures --verbose --filter="$linter_id" "$target_file" 2>&1 | tee "$output_file"; then
+  if trunk check --no-fix --no-progress --color=false --print-failures --verbose --cache=false --filter="$linter_id" "$target_file" 2>&1 | tee "$output_file"; then
     find .trunk/out -maxdepth 1 -type f -name '*.yaml' -print -exec sed -n '1,240p' {} \;
     find .trunk/logs -maxdepth 2 -type f -print -exec tail -n 160 {} \;
     printf 'Expected %s to reject %s\n' "$linter_id" "$target_file" >&2
@@ -155,7 +155,7 @@ expect_success() {
   local target_file=$2
 
   git add -- "$target_file"
-  trunk check --no-fix --no-progress --filter="$linter_id" "$target_file"
+  trunk check --no-fix --no-progress --cache=false --filter="$linter_id" "$target_file"
 }
 
 expect_format_failure() {
@@ -210,6 +210,8 @@ initialize_repository "$baseline_root"
   expect_failure cspell spell.md
   cp "$repo_root/tests/fixtures/clean/README.md" spell.md
   expect_success cspell spell.md
+  cp "$repo_root/tests/fixtures/clean/cspell-shared.md" spell.md
+  expect_success cspell spell.md
 
   cp "$repo_root/tests/fixtures/violations/markdownlint.md" markdown.md
   expect_failure markdownlint markdown.md
@@ -229,6 +231,29 @@ initialize_repository "$baseline_root"
   cp "$repo_root/tests/fixtures/violations/cspell.md" spell.md
   cp "$repo_root/tests/fixtures/overrides/cspell.config.yaml" cspell.config.yaml
   expect_success cspell spell.md
+
+  if [[ ! -f "$repo_root/configs/cspell/vgv.config.yaml" ]]; then
+    printf 'Missing optional VGV CSpell config: %s\n' "$repo_root/configs/cspell/vgv.config.yaml" >&2
+    exit 1
+  fi
+  awk -v shared_config="$plugin_root/configs/cspell.config.yaml" -v vgv_config="$repo_root/configs/cspell/vgv.config.yaml" '
+    { gsub("__SHARED_CONFIG__", shared_config) }
+    { gsub("__VGV_CONFIG__", vgv_config) }
+    { print }
+  ' "$repo_root/tests/fixtures/overrides/cspell-shared-vgv.config.yaml" >cspell.config.yaml
+  cp "$repo_root/tests/fixtures/violations/cspell.md" spell.md
+  expect_success cspell spell.md
+  cp "$repo_root/tests/fixtures/clean/cspell-shared.md" spell.md
+  expect_success cspell spell.md
+  cp "$repo_root/tests/fixtures/violations/cspell-vgv.md" spell.md
+  expect_failure cspell spell.md cspell/error "Forbidden word (meta-data)" spell.md
+  cp "$repo_root/tests/fixtures/clean/AndroidManifest.xml" AndroidManifest.xml
+  expect_success cspell AndroidManifest.xml
+
+  if grep -Eq 'very_good_dictionaries/(refs/heads/)?main/' "$repo_root/configs/cspell/vgv.config.yaml"; then
+    printf 'Optional VGV CSpell config used a mutable main URL\n' >&2
+    exit 1
+  fi
 )
 
 # A consumer that drops trunk-io/plugins depends on the bundled runtime, and on
