@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request: {}
+  push:
+    branches: [main]
+
+# Read-only: the workflow validates the plugin and never publishes or deploys anything.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # Only a superseded pull request push cancels its earlier run; every push to main keeps its verdict.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    name: Plugin and profile proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The Flutter profile's prettier-plugin-markdown-dart shells out to `dart`,
+      # which the environment must supply; the bundled dart linter downloads its own SDK.
+      - name: Install the Dart SDK
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+
+      # The setup action downloads the launcher and exports its path as TRUNK_PATH,
+      # but does not put it on PATH; the script invokes `trunk` by name.
+      - name: Install the Trunk CLI
+        uses: trunk-io/trunk-action/setup@e1234e67a86010d61ddac8d8ebf4b783e2ffd2fa # v2.0.0
+      - name: Add the Trunk launcher to PATH
+        run: |
+          test -x "$TRUNK_PATH"
+          dirname "$TRUNK_PATH" | tee -a "$GITHUB_PATH"
+
+      - name: Run the plugin and profile proof
+        run: ./scripts/test-plugin.sh
