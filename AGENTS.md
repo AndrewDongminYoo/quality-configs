@@ -23,7 +23,7 @@ Use sentence-level line breaks, do not hard-wrap prose, and add a language ident
 Run the following checks before proposing a release:
 
 ```bash
-trunk fmt --no-fix --diff=full README.md AGENTS.md plugin.yaml configs profiles docs scripts tests .trunk
+trunk fmt --no-fix --diff=full README.md AGENTS.md plugin.yaml configs profiles docs scripts tests .trunk .github
 trunk check --all --no-fix
 git diff --check
 ```
