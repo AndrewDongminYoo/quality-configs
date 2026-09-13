@@ -24,15 +24,22 @@ MANIFEST="$CONFIG_DIR/plugins/installed_plugins.json"
 [[ -f "$MANIFEST" ]] || exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 
-INSTALL_PATH=$(jq -r '.plugins["guard-hooks@cc-agents-kit"][0].installPath // empty' "$MANIFEST" 2>/dev/null || true)
-[[ -n "$INSTALL_PATH" ]] || exit 0
-
-HOOK="$INSTALL_PATH/hooks/security-review-findings.sh"
-[[ -f "$HOOK" ]] || exit 0
+# The manifest keeps a list per plugin (one entry per scope), and an entry can
+# outlive its cache directory, so the first entry whose hook exists is used.
+HOOK=""
+while IFS= read -r install_path; do
+  [[ -n "$install_path" && -f "$install_path/hooks/security-review-findings.sh" ]] || continue
+  HOOK="$install_path/hooks/security-review-findings.sh"
+  break
+done < <(jq -r '.plugins["guard-hooks@cc-agents-kit"][]?.installPath // empty' "$MANIFEST" 2>/dev/null || true)
+[[ -n "$HOOK" ]] || exit 0
 
 # The hook keys its lookup by the Claude Code SESSION's cwd, which a terminal
 # commit does not have. The repository root stands in for it: every automatic
 # review observed so far belonged to a session opened there, and a session
 # opened in a subdirectory is the one case this adapter cannot see.
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-exec bash "$HOOK" --print "$REPO_ROOT"
+# The hook is warn-only and so is this action: whatever the hook printed is
+# relayed, and its exit status never becomes the action's, since trunk would
+# fail the commit on a nonzero one.
+bash "$HOOK" --print "$REPO_ROOT" || true

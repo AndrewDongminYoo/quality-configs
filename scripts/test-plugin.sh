@@ -238,20 +238,26 @@ expect_action_prints() {
   # called with; the adapter must find it through installed_plugins.json and
   # pass --print plus the repository root. The stand-in writes its arguments to
   # a file as well as stdout, so "the adapter never ran the hook" and "trunk did
-  # not relay the hook's stdout" fail as two different messages.
+  # not relay the hook's stdout" fail as two different messages. It also exits
+  # nonzero after printing: the action is warn-only, so the hook's status must
+  # not become the action's, or trunk would fail the commit.
   local called_file="$test_root/${action_id}-called.log"
   mkdir -p "$fake_plugin/hooks" "$fake_claude/plugins"
   cat >"$fake_plugin/hooks/security-review-findings.sh" <<STAND_IN
 #!/usr/bin/env bash
 printf '%s %s\n' "\$1" "\$2" >"$called_file"
 printf 'Automatic security review stand-in: %s %s\n' "\$1" "\$2"
+exit 3
 STAND_IN
-  printf '{"version":2,"plugins":{"guard-hooks@cc-agents-kit":[{"installPath":"%s"}]}}\n' "$fake_plugin" >"$fake_claude/plugins/installed_plugins.json"
+  # A stale entry first — its cache directory is gone — and the live one
+  # second: the manifest keeps one entry per scope, and the adapter must not
+  # stop at element zero.
+  printf '{"version":2,"plugins":{"guard-hooks@cc-agents-kit":[{"installPath":"%s"},{"installPath":"%s"}]}}\n' "$fake_claude/plugins/cache/cc-agents-kit/guard-hooks/0.0.0-removed" "$fake_plugin" >"$fake_claude/plugins/installed_plugins.json"
 
   # Same daemon restart as expect_action_silent, for the same reason.
   trunk daemon shutdown --no-progress --color=false >/dev/null 2>&1 || true
   if ! CLAUDE_CONFIG_DIR="$fake_claude" trunk actions run "$action_id" --no-progress --color=false >"$output_file" 2>&1; then
-    printf '%s failed with a plugin installed\n' "$action_id" >&2
+    printf '%s failed with a plugin installed (the stand-in exits 3; a warn-only action must not fail with it)\n' "$action_id" >&2
     cat "$output_file" >&2
     exit 1
   fi
