@@ -44,6 +44,7 @@ lint:
 
 actions:
   enabled:
+    - security-review-findings
     - trunk-announce
     - trunk-check-pre-push
     - trunk-upgrade-available

@@ -1,0 +1,20 @@
+version: 0.1
+actions:
+  definitions:
+    - id: security-review-findings
+      display_name: Automatic Security Review Findings
+      description:
+        Before a commit, print any finding Claude Code's automatic security-review sessions produced
+        for a session opened at this repository's root in the last two days. Warns only; never blocks.
+        Silent on a machine without Claude Code or the guard-hooks plugin.
+      run: bash ${cwd}/security-review-findings.sh
+      triggers:
+        - git_hooks: [pre-commit]
+      # An action sees only HOME, PATH, PWD, SSH_AUTH_SOCK, USER and the shell level
+      # (measured on trunk 1.25.0); anything else must be forwarded here, and
+      # ${env.*} reads the environment the trunk daemon was started with, not
+      # the one of the invocation that runs the action.
+      environment:
+        - name: CLAUDE_CONFIG_DIR
+          value: ${env.CLAUDE_CONFIG_DIR}
+          optional: true
