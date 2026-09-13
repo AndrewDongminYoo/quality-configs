@@ -194,3 +194,6 @@ The script creates repositories only under a validated temporary directory.
 It commits test fixtures so Trunk has a real Git baseline and adds this checkout as a local plugin.
 The standalone scenario removes `trunk-io/plugins` and exercises failure and success fixtures for each bundled linter.
 The script removes the temporary directory on exit.
+It needs `trunk`, `git`, `ruby`, `jq`, and `dart` on `PATH`; the Dart SDK serves the Flutter profile's `prettier-plugin-markdown-dart`, while the bundled `dart` linter downloads its own.
+
+[`.github/workflows/ci.yaml`](./.github/workflows/ci.yaml) runs the same script in GitHub Actions, installing the Trunk CLI and a stable Dart SDK on a runner image that already provides the rest.
