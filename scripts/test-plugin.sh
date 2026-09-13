@@ -20,15 +20,33 @@ cp -R "$repo_root/runtimes" "$plugin_root/runtimes"
 # through ${cwd}, so the staged copy must carry the script beside its definition.
 cp -R "$repo_root/actions" "$plugin_root/actions"
 
+# Shut the current workspace's trunk daemon down and wait, bounded at 10 s,
+# until `trunk daemon status` reports it stopped: `shutdown` returns before
+# the process is gone, and a daemon still winding down recreates its
+# workspace's .trunk/ after an rm -rf, or answers an action run with a Trunk
+# Internal Error. The status is captured, not piped into grep -q, because
+# status exits 1 while stopped and under pipefail an early-exiting grep would
+# hide the match. Returns 1 when the daemon is still up after the wait.
+stop_daemon() {
+  local status
+  trunk daemon shutdown --no-progress --color=false >/dev/null 2>&1 || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    status=$(trunk daemon status --no-progress --color=false 2>&1 || true)
+    [[ "$status" == *"Daemon stopped"* ]] && return 0
+    sleep 1
+  done
+  return 1
+}
+
 cleanup() {
   if [[ -n "${test_root:-}" && -d "$test_root" && "$(basename "$test_root")" == quality-configs-test.* ]]; then
     # Each consumer's trunk daemon was started with a test-only environment
-    # (CLAUDE_CONFIG_DIR under $test_root); stop them before their workspaces
-    # are deleted rather than leaving daemons pointed at a removed tree.
+    # (CLAUDE_CONFIG_DIR under $test_root); stop them, and wait until they are
+    # gone, before their workspaces are deleted.
     local consumer
     for consumer in "$test_root"/*/; do
       [[ -d "$consumer/.trunk" ]] || continue
-      (cd "$consumer" && trunk daemon shutdown --no-progress --color=false >/dev/null 2>&1) || true
+      (cd "$consumer" && stop_daemon) || printf 'warning: a trunk daemon in %s did not stop; it may recreate .trunk/ there\n' "$consumer" >&2
     done
     rm -rf "$test_root"
   fi
@@ -215,22 +233,13 @@ expect_action_enabled() {
   fi
 }
 
-# Stop the consumer's trunk daemon and wait until it reports stopped, so the
-# next invocation starts a fresh daemon under that invocation's environment.
-# `shutdown` returns before the daemon is gone, and an action run that
-# reaches the dying daemon fails with a Trunk Internal Error.
+# Stop the consumer's trunk daemon so the next invocation starts a fresh one
+# under that invocation's environment (see stop_daemon).
 restart_daemon() {
-  local status
-  trunk daemon shutdown --no-progress --color=false >/dev/null 2>&1 || true
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
-    # Captured, not piped into grep -q: status exits 1 when the daemon is
-    # stopped, and under pipefail an early-exiting grep would hide the match.
-    status=$(trunk daemon status --no-progress --color=false 2>&1 || true)
-    [[ "$status" == *"Daemon stopped"* ]] && return 0
-    sleep 1
-  done
-  printf 'trunk daemon did not stop within 10 s\n' >&2
-  exit 1
+  if ! stop_daemon; then
+    printf 'trunk daemon did not stop within 10 s\n' >&2
+    exit 1
+  fi
 }
 
 expect_action_silent() {
