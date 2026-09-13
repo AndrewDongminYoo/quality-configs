@@ -88,7 +88,8 @@ It also enables [`security-review-findings`](./actions/security-review-findings/
 The action is a thin adapter: it calls the `--print` mode of the `security-review-findings` hook in the [guard-hooks](https://github.com/AndrewDongminYoo/cc-agents-kit) Claude Code plugin, which owns the lookup, and stays silent on a machine without Claude Code, that plugin, or `jq`.
 It warns and never blocks.
 The action is enabled from `plugin.yaml` rather than from the profiles, because a profile is merged before this plugin is added and `trunk plugins add` rejects a configuration that enables an action no source yet defines.
-It is the one entry in the root baseline that names a specific tool rather than a language stack, and that is deliberate: the baseline is stack-agnostic so that every owned repository can consume it, and Claude Code is the tooling those repositories share regardless of stack, so the action belongs with the baseline rather than with a profile. A consumer that does not want it disables it locally under `actions.disabled`, the same way the baseline itself withholds `trunk-fmt-pre-commit`.
+It is the one entry in the root baseline that names a specific tool rather than a language stack, and that is deliberate: the baseline is stack-agnostic so that every owned repository can consume it, and Claude Code is the tooling those repositories share regardless of stack, so the action belongs with the baseline rather than with a profile.
+A consumer that does not want it disables it locally under `actions.disabled`, the same way the baseline itself withholds `trunk-fmt-pre-commit`.
 
 ## Local Evaluation
 

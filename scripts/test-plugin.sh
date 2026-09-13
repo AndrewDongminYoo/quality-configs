@@ -22,6 +22,14 @@ cp -R "$repo_root/actions" "$plugin_root/actions"
 
 cleanup() {
   if [[ -n "${test_root:-}" && -d "$test_root" && "$(basename "$test_root")" == quality-configs-test.* ]]; then
+    # Each consumer's trunk daemon was started with a test-only environment
+    # (CLAUDE_CONFIG_DIR under $test_root); stop them before their workspaces
+    # are deleted rather than leaving daemons pointed at a removed tree.
+    local consumer
+    for consumer in "$test_root"/*/; do
+      [[ -d "$consumer/.trunk" ]] || continue
+      (cd "$consumer" && trunk daemon shutdown --no-progress --color=false >/dev/null 2>&1) || true
+    done
     rm -rf "$test_root"
   fi
 }
@@ -207,6 +215,24 @@ expect_action_enabled() {
   fi
 }
 
+# Stop the consumer's trunk daemon and wait until it reports stopped, so the
+# next invocation starts a fresh daemon under that invocation's environment.
+# `shutdown` returns before the daemon is gone, and an action run that
+# reaches the dying daemon fails with a Trunk Internal Error.
+restart_daemon() {
+  local status
+  trunk daemon shutdown --no-progress --color=false >/dev/null 2>&1 || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    # Captured, not piped into grep -q: status exits 1 when the daemon is
+    # stopped, and under pipefail an early-exiting grep would hide the match.
+    status=$(trunk daemon status --no-progress --color=false 2>&1 || true)
+    [[ "$status" == *"Daemon stopped"* ]] && return 0
+    sleep 1
+  done
+  printf 'trunk daemon did not stop within 10 s\n' >&2
+  exit 1
+}
+
 expect_action_silent() {
   local action_id=$1
   local output_file="$test_root/${action_id}-silent.log"
@@ -216,7 +242,7 @@ expect_action_silent() {
   # trunk daemon was started with, so the daemon is stopped first and restarts
   # under this invocation's variable (otherwise the run silently uses the
   # authoring machine's real ~/.claude).
-  trunk daemon shutdown --no-progress --color=false >/dev/null 2>&1 || true
+  restart_daemon
   if ! CLAUDE_CONFIG_DIR="$test_root/empty-claude" trunk actions run "$action_id" --no-progress --color=false >"$output_file" 2>&1; then
     printf '%s failed instead of staying silent without a plugin\n' "$action_id" >&2
     cat "$output_file" >&2
@@ -255,7 +281,7 @@ STAND_IN
   printf '{"version":2,"plugins":{"guard-hooks@cc-agents-kit":[{"installPath":"%s"},{"installPath":"%s"}]}}\n' "$fake_claude/plugins/cache/cc-agents-kit/guard-hooks/0.0.0-removed" "$fake_plugin" >"$fake_claude/plugins/installed_plugins.json"
 
   # Same daemon restart as expect_action_silent, for the same reason.
-  trunk daemon shutdown --no-progress --color=false >/dev/null 2>&1 || true
+  restart_daemon
   if ! CLAUDE_CONFIG_DIR="$fake_claude" trunk actions run "$action_id" --no-progress --color=false >"$output_file" 2>&1; then
     printf '%s failed with a plugin installed (the stand-in exits 3; a warn-only action must not fail with it)\n' "$action_id" >&2
     cat "$output_file" >&2
