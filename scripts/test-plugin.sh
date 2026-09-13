@@ -16,6 +16,9 @@ cp -R "$repo_root/configs" "$plugin_root/configs"
 # so the bundled definitions win each name collision.
 cp -R "$repo_root/linters" "$plugin_root/linters"
 cp -R "$repo_root/runtimes" "$plugin_root/runtimes"
+# Actions resolve the same way: actions/<id>/plugin.yaml, run from that directory
+# through ${cwd}, so the staged copy must carry the script beside its definition.
+cp -R "$repo_root/actions" "$plugin_root/actions"
 
 cleanup() {
   if [[ -n "${test_root:-}" && -d "$test_root" && "$(basename "$test_root")" == quality-configs-test.* ]]; then
@@ -188,6 +191,86 @@ expect_format_success() {
   trunk fmt --no-fix --no-progress --filter="$linter_id" "$target_file"
 }
 
+# The security-review-findings action is an adapter around a hook shipped by a
+# separate Claude Code plugin, so what this script can prove is the adapter's
+# contract: the action is defined and enabled for the consumer, it is silent
+# when nothing points at that plugin, and it relays the hook's stdout when
+# something does. The hook itself is tested in its own repository.
+expect_action_enabled() {
+  local action_id=$1
+  local output_file="$test_root/actions-list.log"
+
+  trunk actions list --no-progress --color=false 2>&1 | tee "$output_file" >/dev/null
+  if ! awk '/^Enabled actions:/{on=1; next} /^Disabled actions:/{on=0} on' "$output_file" | grep -Fq "  $action_id"; then
+    printf 'Expected %s among the enabled actions\n' "$action_id" >&2
+    exit 1
+  fi
+}
+
+expect_action_silent() {
+  local action_id=$1
+  local output_file="$test_root/${action_id}-silent.log"
+
+  # An empty config dir: no plugin manifest, so the adapter must exit 0 quietly.
+  # The action's ${env.CLAUDE_CONFIG_DIR} forward reads the environment the
+  # trunk daemon was started with, so the daemon is stopped first and restarts
+  # under this invocation's variable (otherwise the run silently uses the
+  # authoring machine's real ~/.claude).
+  trunk daemon shutdown --no-progress --color=false >/dev/null 2>&1 || true
+  if ! CLAUDE_CONFIG_DIR="$test_root/empty-claude" trunk actions run "$action_id" --no-progress --color=false >"$output_file" 2>&1; then
+    printf '%s failed instead of staying silent without a plugin\n' "$action_id" >&2
+    cat "$output_file" >&2
+    exit 1
+  fi
+  if grep -Fq 'Automatic security review' "$output_file"; then
+    printf '%s printed findings with no plugin installed\n' "$action_id" >&2
+    exit 1
+  fi
+}
+
+expect_action_prints() {
+  local action_id=$1
+  local output_file="$test_root/${action_id}-prints.log"
+  local fake_claude="$test_root/fake-claude"
+  local fake_plugin="$fake_claude/plugins/cache/cc-agents-kit/guard-hooks/0.0.0-test"
+
+  # A manifest that points at a stand-in hook, which records what it was
+  # called with; the adapter must find it through installed_plugins.json and
+  # pass --print plus the repository root. The stand-in writes its arguments to
+  # a file as well as stdout, so "the adapter never ran the hook" and "trunk did
+  # not relay the hook's stdout" fail as two different messages.
+  local called_file="$test_root/${action_id}-called.log"
+  mkdir -p "$fake_plugin/hooks" "$fake_claude/plugins"
+  cat >"$fake_plugin/hooks/security-review-findings.sh" <<STAND_IN
+#!/usr/bin/env bash
+printf '%s %s\n' "\$1" "\$2" >"$called_file"
+printf 'Automatic security review stand-in: %s %s\n' "\$1" "\$2"
+STAND_IN
+  printf '{"version":2,"plugins":{"guard-hooks@cc-agents-kit":[{"installPath":"%s"}]}}\n' "$fake_plugin" >"$fake_claude/plugins/installed_plugins.json"
+
+  # Same daemon restart as expect_action_silent, for the same reason.
+  trunk daemon shutdown --no-progress --color=false >/dev/null 2>&1 || true
+  if ! CLAUDE_CONFIG_DIR="$fake_claude" trunk actions run "$action_id" --no-progress --color=false >"$output_file" 2>&1; then
+    printf '%s failed with a plugin installed\n' "$action_id" >&2
+    cat "$output_file" >&2
+    exit 1
+  fi
+  if [[ ! -f "$called_file" ]]; then
+    printf '%s never ran the plugin hook: CLAUDE_CONFIG_DIR did not reach the action, or the adapter did not resolve the manifest\n' "$action_id" >&2
+    cat "$output_file" >&2
+    exit 1
+  fi
+  if ! grep -Fqx -- "--print $(git rev-parse --show-toplevel)" "$called_file"; then
+    printf '%s called the plugin hook with the wrong arguments (want --print and the repository root): %s\n' "$action_id" "$(cat "$called_file")" >&2
+    exit 1
+  fi
+  if ! grep -Fq "Automatic security review stand-in: --print $(git rev-parse --show-toplevel)" "$output_file"; then
+    printf '%s ran the plugin hook but trunk did not relay its stdout\n' "$action_id" >&2
+    cat "$output_file" >&2
+    exit 1
+  fi
+}
+
 assert_generated_output_contains() {
   local expected_text=$1
 
@@ -205,6 +288,10 @@ initialize_repository "$baseline_root"
   apply_profile baseline .trunk/trunk.yaml
   trunk plugins add "$plugin_root" --id="$plugin_id" --no-progress
   QUALITY_CONFIGS_PLUGIN_YAML="$plugin_root/plugin.yaml" assert_resolved_baseline
+
+  expect_action_enabled security-review-findings
+  expect_action_silent security-review-findings
+  expect_action_prints security-review-findings
 
   cp "$repo_root/tests/fixtures/violations/cspell.md" spell.md
   expect_failure cspell spell.md
