@@ -52,6 +52,8 @@ if [[ -z "$pinact_bin" ]]; then
   cache="${TRUNK_CACHE:-$HOME/.cache/trunk}/tools/pinact"
   pinact_bin=$(find "$cache" -mindepth 2 -maxdepth 2 -type f -name pinact 2>/dev/null | sort -V | tail -n 1 || true)
 fi
+# The command is one single-quoted YAML scalar; the shell quoting of the
+# binary path lives inside it.
 printf '    commands:\n'
-printf '      - run: "%s" run\n' "${pinact_bin:-pinact}"
+printf "      - run: '\"%s\" run'\n" "${pinact_bin:-pinact}"
 printf '        title: Re-pin with pinact\n'
