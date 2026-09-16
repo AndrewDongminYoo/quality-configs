@@ -100,6 +100,10 @@ if (($(printf '%s\n' "$repos" | wc -l) >= list_limit)); then
   echo "action-pin-sweep: the listing reached $list_limit repositories and may be truncated; raise list_limit" >&2
   exit 1
 fi
+# gh orders the listing by last push, so it is sorted by name here: the
+# report's order is what the reporter compares, and an unrelated push must
+# not read as a change in the outdated set.
+repos=$(printf '%s\n' "$repos" | sort)
 
 swept=0
 # Repositories whose scan finished with pinact exit 0; only these can vouch
