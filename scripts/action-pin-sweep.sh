@@ -77,13 +77,20 @@ trap 'rm -rf "$work"' EXIT
 
 # The listing is taken first, on its own, so a failed or empty listing stops
 # the sweep instead of feeding an empty loop that would report every pin as
-# current. Each line is "<name>\t<true|false>" for the private flag.
-if ! repos=$(gh repo list "$owner" --limit 500 --no-archived --source --json name,isPrivate --jq '.[] | "\(.name)\t\(.isPrivate)"' 2>"$work/list.err"); then
+# current. Each line is "<name>\t<true|false>" for the private flag. gh caps
+# the listing at --limit and succeeds silently at the cap, so a result that
+# reaches it is treated as truncated and fails the sweep.
+list_limit=1000
+if ! repos=$(gh repo list "$owner" --limit "$list_limit" --no-archived --source --json name,isPrivate --jq '.[] | "\(.name)\t\(.isPrivate)"' 2>"$work/list.err"); then
   echo "action-pin-sweep: listing $owner's repositories failed: $(head -n 1 "$work/list.err")" >&2
   exit 1
 fi
 if [[ -z "$repos" ]]; then
   echo "action-pin-sweep: $owner has no repositories to scan" >&2
+  exit 1
+fi
+if (($(printf '%s\n' "$repos" | wc -l) >= list_limit)); then
+  echo "action-pin-sweep: the listing reached $list_limit repositories and may be truncated; raise list_limit" >&2
   exit 1
 fi
 

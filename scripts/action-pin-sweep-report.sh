@@ -58,22 +58,29 @@ if [[ "$body" == "$old_body" ]]; then
   exit 0
 fi
 
-gh issue edit "$number" --repo "$repo" --body "$body" >/dev/null
 if [[ "$(outdated_set <<<"$body")" == "$(outdated_set <<<"$old_body")" ]]; then
+  gh issue edit "$number" --repo "$repo" --body "$body" >/dev/null
   echo "updated issue #$number body; the outdated set is unchanged, no comment"
   exit 0
 fi
 had_findings=0
 grep -q '^### ' <<<"$old_body" && had_findings=1
 
+# The comment goes first and the body second. A failed comment then fails the
+# step before the body records the new state, so the next run sees a changed
+# body and comments again; a failed body edit after a delivered comment costs
+# at most one duplicate comment on the next run.
 if ((has_findings == 1)); then
   gh issue comment "$number" --repo "$repo" \
     --body "$(printf 'Sweep on %s%s changed the outdated set.\n\n%s' "$today" "$run_link" "$body")" >/dev/null
-  echo "updated and commented on issue #$number"
+  gh issue edit "$number" --repo "$repo" --body "$body" >/dev/null
+  echo "commented on and updated issue #$number"
 elif ((had_findings == 1)); then
   gh issue comment "$number" --repo "$repo" \
     --body "$(printf 'Sweep on %s%s: every pin is at its latest release.' "$today" "$run_link")" >/dev/null
-  echo "updated issue #$number: all current"
+  gh issue edit "$number" --repo "$repo" --body "$body" >/dev/null
+  echo "commented on and updated issue #$number: all current"
 else
+  gh issue edit "$number" --repo "$repo" --body "$body" >/dev/null
   echo "updated issue #$number body; no findings before or after"
 fi
