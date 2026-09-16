@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Trunk action adapter: run pinact-outdated.sh against the workspace and turn
+# its report into a notification_v1 document, so `trunk check` and the IDE show
+# "N action pins have a newer release" without editing anything.
+#
+# Silent when pinact is unavailable or fails: a daily background action must
+# never turn a missing tool or a network error into a standing warning, and
+# the scheduled sweep in this repository's own CI is the channel that reports
+# failures. A machine without pinact simply gets no notification.
+
+set -euo pipefail
+
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+id=pinact-outdated
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+
+# Exit 3 is a partial scan: the resolved lines are still worth showing, and the
+# unresolvable ones are the repository's own floating refs.
+status=0
+report=$(bash "$here/pinact-outdated.sh" "$repo_root" 2>/dev/null) || status=$?
+if ((status != 0 && status != 3)); then
+  exit 0
+fi
+
+if [[ -z "$report" ]]; then
+  # Only a complete scan may clear a standing notification; a partial scan
+  # that resolved nothing (a lookup failure on every line) says nothing about
+  # whether the pins it last reported are still outdated.
+  ((status == 0)) && printf 'notifications_to_delete:\n  - %s\n' "$id"
+  exit 0
+fi
+
+count=$(printf '%s\n' "$report" | wc -l | tr -d ' ')
+noun="pins have"
+[[ "$count" == 1 ]] && noun="pin has"
+
+printf 'notifications:\n'
+printf '  - id: %s\n' "$id"
+printf '    title: GitHub Actions pins\n'
+printf '    message: |\n'
+printf '      %s action %s a newer release. Edit the version comment to the tag you want and let pinact pin it:\n' "$count" "$noun"
+printf '%s\n' "$report" | sed 's/^/      /'
+printf '    commands:\n'
+printf '      - run: trunk check --fix --filter=pinact .github\n'
+printf '        title: Re-pin with trunk\n'

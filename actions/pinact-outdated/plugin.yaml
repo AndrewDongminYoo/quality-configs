@@ -1,0 +1,28 @@
+version: 0.1
+actions:
+  definitions:
+    - id: pinact-outdated
+      display_name: GitHub Actions pins have a newer release
+      description:
+        Once a day, report every SHA-pinned GitHub Action in this repository whose
+        upstream has a newer release, as a notification only. Nothing is edited and
+        no pull request is opened; re-pinning stays a deliberate local change. Silent
+        when pinact is unavailable or cannot reach GitHub.
+      run: bash ${cwd}/notify.sh
+      output_type: notification_v1
+      triggers:
+        - schedule: 24h
+        - files: [.github/workflows/*.yml, .github/workflows/*.yaml]
+      # An action sees only HOME, PATH, PWD, SSH_AUTH_SOCK, USER and the shell level
+      # (measured on trunk 1.25.0), so the token pinact needs for release lookups is
+      # forwarded here; without one it falls back to `gh auth token`.
+      environment:
+        - name: GITHUB_TOKEN
+          value: ${env.GITHUB_TOKEN}
+          optional: true
+        - name: PINACT_GITHUB_TOKEN
+          value: ${env.PINACT_GITHUB_TOKEN}
+          optional: true
+        - name: TRUNK_CACHE
+          value: ${env.TRUNK_CACHE}
+          optional: true
