@@ -91,6 +91,22 @@ The action is enabled from `plugin.yaml` rather than from the profiles, because 
 It is the one entry in the root baseline that names a specific tool rather than a language stack, and that is deliberate: the baseline is stack-agnostic so that every owned repository can consume it, and Claude Code is the tooling those repositories share regardless of stack, so the action belongs with the baseline rather than with a profile.
 A consumer that does not want it disables it locally under `actions.disabled`, the same way the baseline itself withholds `trunk-fmt-pre-commit`.
 
+### Outdated Action Pins
+
+The baseline pins GitHub Actions to commit SHAs through `pinact`, and a pin only stays current if something watches upstream releases.
+Two opt-in pieces do that watching as notifications, never as pull requests, because one Dependabot pull request per action per repository was the volume the operator turned Dependabot off to avoid.
+
+[`pinact-outdated`](./actions/pinact-outdated/plugin.yaml) is a trunk action that once a day copies the repository's workflow and action files aside, runs `pinact run --update` on the copy, and reports each `uses:` whose upstream has a newer release as a `notification_v1` message.
+It edits nothing; re-pinning stays a local `trunk check --fix --filter=pinact .github` after editing the version comment to the tag you want.
+The plugin defines it but does not enable it, since it calls the GitHub API from the daemon; a consumer opts in with `trunk actions enable pinact-outdated`, and the action is silent when pinact is unavailable.
+
+[`action-pin-sweep.yaml`](./.github/workflows/action-pin-sweep.yaml) runs the same scan weekly, in this repository's CI, across every owned repository whose `.trunk/trunk.yaml` enables `pinact`.
+It keeps one tracking issue here, labelled `action-pin-sweep`, whose body is the current list of outdated pins, and comments on it only when that list changes.
+Because this repository, its Actions log and that issue are public, private repositories appear in the report only as counts; `scripts/action-pin-sweep.sh --show-private <owner>` on the operator's machine lists them.
+The sweep reads the owner's repositories through the `GH_TOKEN` repository secret, a personal token with read access to them; the tracking issue is written with the workflow's own token.
+A failed repository listing, or a run that scanned nothing, fails the job rather than reporting every pin as current.
+`docs/notes/2026-09-16-action-pin-sweep.md` records the measurements behind the design.
+
 ## Local Evaluation
 
 To evaluate a local checkout before a release, add it to an initialized test repository by absolute local path:
