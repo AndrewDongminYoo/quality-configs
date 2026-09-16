@@ -1,15 +1,14 @@
 #!/bin/bash
-# Unit test for actions/pinact-outdated/pinact-outdated.sh and the trunk.yaml
-# filter of scripts/action-pin-sweep.sh. pinact itself is replaced by a stub on
-# PATH, so the test needs no network and no GitHub token: what is under test is
-# the copy-then-diff around pinact and the shape of the reported lines, not
-# pinact's own resolution of the latest release.
+# Unit test for actions/pinact-outdated/pinact-outdated.sh and notify.sh.
+# pinact itself is replaced by a stub on PATH, so the test needs no network and
+# no GitHub token: what is under test is the copy-then-diff around pinact and
+# the shape of the reported lines, not pinact's own resolution of the latest
+# release.
 
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 core="$repo_root/actions/pinact-outdated/pinact-outdated.sh"
-sweep="$repo_root/scripts/action-pin-sweep.sh"
 test_root=$(mktemp -d "${TMPDIR:-/tmp}/pinact-outdated-test.XXXXXX")
 trap 'rm -rf "$test_root"' EXIT
 
@@ -165,140 +164,7 @@ else
   fail "partial scan: exit $status, output: $actual, stderr: $(cat "$test_root/partial.err")"
 fi
 
-# 6. The sweep only covers repositories whose trunk.yaml enables pinact.
-enforcing=$(
-  cat <<'YAML'
-version: 0.1
-lint:
-  disabled:
-    - dart
-  enabled:
-    - actionlint@1.7.12
-    - pinact@4.1.1
-YAML
-)
-withheld=$(
-  cat <<'YAML'
-version: 0.1
-lint:
-  disabled:
-    - dart
-    - pinact
-  enabled:
-    - actionlint@1.7.12
-YAML
-)
-if bash "$sweep" --enforces-pinact <<<"$enforcing"; then
-  pass "a trunk.yaml that enables pinact is selected"
-else
-  fail "a trunk.yaml that enables pinact was not selected"
-fi
-if bash "$sweep" --enforces-pinact <<<"$withheld"; then
-  fail "a trunk.yaml that disables pinact was selected"
-else
-  pass "a trunk.yaml that disables pinact is skipped"
-fi
-
-# A consumer can inherit an enabled pinact from a plugin or profile and switch
-# it off locally; the disabled entry is the repository's decision.
-overridden=$(
-  cat <<'YAML'
-version: 0.1
-lint:
-  disabled:
-    - pinact
-  enabled:
-    - actionlint@1.7.12
-    - pinact@4.0.0
-YAML
-)
-if bash "$sweep" --enforces-pinact <<<"$overridden"; then
-  fail "a trunk.yaml that both enables and disables pinact was selected"
-else
-  pass "a disabled entry overrides an inherited enabled one"
-fi
-
-# 6b. A consumer that inherits pinact from the quality-configs plugin, without
-#     repeating it locally, is in scope; a local disabled entry still wins.
-inherited=$(
-  cat <<'YAML'
-version: 0.1
-plugins:
-  sources:
-    - id: quality-configs
-      ref: v9.0.0
-      uri: https://github.com/AndrewDongminYoo/quality-configs
-lint:
-  enabled:
-    - actionlint@1.7.12
-YAML
-)
-inherited_disabled=$(
-  cat <<'YAML'
-version: 0.1
-plugins:
-  sources:
-    - id: quality-configs
-      ref: v9.0.0
-      uri: https://github.com/AndrewDongminYoo/quality-configs
-lint:
-  disabled:
-    - pinact
-YAML
-)
-# The inheritance check reads the plugin revision the consumer pins; a gh stub
-# answers for the fictional v9.0.0 (enables pinact) and v0.1.0 (predates it).
-gh_plugin_dir="$test_root/gh-plugin"
-mkdir -p "$gh_plugin_dir"
-cat >"$gh_plugin_dir/gh" <<'SH'
-#!/bin/bash
-case "$*" in
-  *"contents/plugin.yaml?ref=v9.0.0"*) printf 'version: 0.1\nlint:\n  enabled:\n    - pinact@4.0.0\n' | base64 ;;
-  *"contents/plugin.yaml?ref=v0.1.0"*) printf 'version: 0.1\nlint:\n  enabled:\n    - prettier@3.9.6\n' | base64 ;;
-  *) echo "stub: unexpected gh $*" >&2; exit 64 ;;
-esac
-SH
-chmod +x "$gh_plugin_dir/gh"
-if PATH="$gh_plugin_dir:$PATH" bash "$sweep" --enforces-pinact <<<"$inherited"; then
-  pass "a consumer inheriting pinact from a plugin revision that enables it is selected"
-else
-  fail "a consumer inheriting pinact from the plugin was skipped"
-fi
-if PATH="$gh_plugin_dir:$PATH" bash "$sweep" --enforces-pinact <<<"$inherited_disabled"; then
-  fail "a consumer that disables the inherited pinact was selected"
-else
-  pass "a consumer that disables the inherited pinact is skipped"
-fi
-early=${inherited/ref: v9.0.0/ref: v0.1.0}
-if PATH="$gh_plugin_dir:$PATH" bash "$sweep" --enforces-pinact <<<"$early"; then
-  fail "a consumer pinned to a plugin revision without pinact was selected"
-else
-  pass "a consumer pinned to a plugin revision without pinact is skipped"
-fi
-unreadable=${inherited/ref: v9.0.0/ref: v8.8.8}
-rc=0
-PATH="$gh_plugin_dir:$PATH" bash "$sweep" --enforces-pinact <<<"$unreadable" 2>/dev/null || rc=$?
-if ((rc == 2)); then
-  pass "an unreadable plugin revision is reported as unknown, not as disabled"
-else
-  fail "an unreadable plugin revision exited $rc instead of 2"
-fi
-mapping=$(
-  cat <<'YAML'
-version: 0.1
-lint:
-  enabled:
-    - pinact@4.1.1:
-        commands: [lint, upgrade]
-YAML
-)
-if bash "$sweep" --enforces-pinact <<<"$mapping"; then
-  pass "trunk's mapping form of an enabled pinact entry is selected"
-else
-  fail "trunk's mapping form of an enabled pinact entry was skipped"
-fi
-
-# 7. The notification adapter clears its notification only after a complete
+# 6. The notification adapter clears its notification only after a complete
 #    scan; a partial scan that resolved nothing leaves the last one standing.
 notify="$repo_root/actions/pinact-outdated/notify.sh"
 git -C "$fixture" init -q
@@ -329,48 +195,6 @@ $out"
   fi
 else
   printf 'skip: ruby is not available, the notification YAML was not parsed\n'
-fi
-
-# 8. A sweep in which every scan failed exits nonzero instead of reporting
-#    every pin as current. The gh stub lists one repository that enforces
-#    pinact and then fails its clone.
-gh_all_fail_dir="$test_root/gh-all-fail"
-mkdir -p "$gh_all_fail_dir"
-cat >"$gh_all_fail_dir/gh" <<'SH'
-#!/bin/bash
-case "$1 $2" in
-  "repo list") printf 'only-repo\tfalse\n' ;;
-  "api repos/some-owner/only-repo/contents/.trunk/trunk.yaml")
-    printf 'version: 0.1\nlint:\n  enabled:\n    - pinact@4.1.1\n' | base64 ;;
-  "repo clone") echo "gh: clone failed" >&2; exit 1 ;;
-  *) echo "stub: unexpected gh $*" >&2; exit 64 ;;
-esac
-SH
-chmod +x "$gh_all_fail_dir/gh"
-if sweep_out=$(PATH="$gh_all_fail_dir:$PATH" bash "$sweep" some-owner 2>"$test_root/sweep-all-fail.err"); then
-  fail "the sweep exited 0 although no repository was scanned: $sweep_out"
-elif grep -q "No repository was scanned completely" <<<"$sweep_out" && grep -q "clone failed" <<<"$sweep_out"; then
-  pass "a sweep in which every scan failed exits nonzero and lists the failures"
-else
-  fail "unexpected all-failed report: $sweep_out / $(cat "$test_root/sweep-all-fail.err")"
-fi
-
-# 9. A failed repository listing stops the sweep instead of producing an
-#    "every pin is current" report from an empty loop.
-gh_stub_dir="$test_root/gh-bin"
-mkdir -p "$gh_stub_dir"
-cat >"$gh_stub_dir/gh" <<'SH'
-#!/bin/bash
-echo "gh: HTTP 401: Bad credentials" >&2
-exit 1
-SH
-chmod +x "$gh_stub_dir/gh"
-if sweep_out=$(PATH="$gh_stub_dir:$PATH" bash "$sweep" some-owner 2>"$test_root/sweep.err"); then
-  fail "the sweep exited 0 although the repository listing failed: $sweep_out"
-elif grep -q "listing some-owner's repositories failed" "$test_root/sweep.err"; then
-  pass "a failed repository listing stops the sweep"
-else
-  fail "the sweep failed for another reason: $(cat "$test_root/sweep.err")"
 fi
 
 if ((failures > 0)); then

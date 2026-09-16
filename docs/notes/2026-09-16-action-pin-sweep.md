@@ -1,5 +1,13 @@
 # Action Pin Sweep
 
+## Status (2026-09-16, after the first run)
+
+The weekly sweep described below ran once from this repository (PR #4, issue #5) and was removed the same day (PR #6).
+A tracking issue in this public repository that lists outdated pins across the owner's repositories reads as a defect report against the plugin, which it is not, and the private-repository digest existed only to work around the issue being public.
+The trunk action `pinact-outdated` stays; it is a plugin action and reports to the consumer's own terminal.
+The sweep scripts and the workflow are in this repository's history at `e49a81c` for the next home, which should be a repository whose issues are the operator's own and can be private, so that private repositories can be named and the digest is unnecessary.
+The sections below are kept as the record of the design and its measurements.
+
 ## Scope
 
 This note records why outdated GitHub Actions pins are reported as notifications rather than pull requests, and the measurements taken on 2026-09-16 that sized the sweep.

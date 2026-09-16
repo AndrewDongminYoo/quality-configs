@@ -4,9 +4,8 @@
 # "N action pins have a newer release" without editing anything.
 #
 # Silent when pinact is unavailable or fails: a daily background action must
-# never turn a missing tool or a network error into a standing warning, and
-# the scheduled sweep in this repository's own CI is the channel that reports
-# failures. A machine without pinact simply gets no notification.
+# never turn a missing tool or a network error into a standing warning. A
+# machine without pinact simply gets no notification.
 
 set -euo pipefail
 
