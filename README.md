@@ -97,7 +97,7 @@ The baseline pins GitHub Actions to commit SHAs through `pinact`, and a pin only
 Two opt-in pieces do that watching as notifications, never as pull requests, because one Dependabot pull request per action per repository was the volume the operator turned Dependabot off to avoid.
 
 [`pinact-outdated`](./actions/pinact-outdated/plugin.yaml) is a trunk action that once a day copies the repository's workflow and action files aside, runs `pinact run --update` on the copy, and reports each `uses:` whose upstream has a newer release as a `notification_v1` message.
-It edits nothing; re-pinning stays a local `trunk check --fix --filter=pinact .github` after editing the version comment to the tag you want.
+It edits nothing; re-pinning stays a local `pinact run` from the repository root after editing the version comment to the tag you want, and the notification carries that command with the path of the pinact binary the scan used, because trunk's `github-actions` file type reaches only `.github/actions/**` while the scan covers every `action.yml` in the tree.
 The plugin defines it but does not enable it, since it calls the GitHub API from the daemon; a consumer opts in with `trunk actions enable pinact-outdated`, and the action is silent when pinact is unavailable.
 
 [`action-pin-sweep.yaml`](./.github/workflows/action-pin-sweep.yaml) runs the same scan weekly, in this repository's CI, across every owned repository whose `.trunk/trunk.yaml` enables `pinact`.

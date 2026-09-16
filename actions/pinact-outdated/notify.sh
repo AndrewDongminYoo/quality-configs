@@ -39,8 +39,17 @@ printf 'notifications:\n'
 printf '  - id: %s\n' "$id"
 printf '    title: GitHub Actions pins\n'
 printf '    message: |\n'
-printf '      %s action %s a newer release. Edit the version comment to the tag you want and let pinact pin it:\n' "$count" "$noun"
+printf '      %s action %s a newer release. Edit the version comment to the tag you want, then run pinact from the repository root to pin it:\n' "$count" "$noun"
 printf '%s\n' "$report" | sed 's/^/      /'
+# The repair runs pinact itself from the repository root, not trunk: the scan
+# covers every action.yml in the tree, while trunk's github-actions file type
+# reaches only .github/actions/**. The binary is the one the scan used, by
+# absolute path, since trunk's copy is not on PATH.
+pinact_bin=$(command -v pinact 2>/dev/null || true)
+if [[ -z "$pinact_bin" ]]; then
+  cache="${TRUNK_CACHE:-$HOME/.cache/trunk}/tools/pinact"
+  pinact_bin=$(find "$cache" -mindepth 2 -maxdepth 2 -type f -name pinact 2>/dev/null | sort -V | tail -n 1 || true)
+fi
 printf '    commands:\n'
-printf '      - run: trunk check --fix --filter=pinact .github\n'
-printf '        title: Re-pin with trunk\n'
+printf '      - run: "%s" run\n' "${pinact_bin:-pinact}"
+printf '        title: Re-pin with pinact\n'
