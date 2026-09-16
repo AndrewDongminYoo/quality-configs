@@ -47,7 +47,10 @@ lint:
           is_security: true
           read_output_from: stdout
           disable_upstream: true
-          # Key differences from upstream: Enable pinact upgrade
+          # Same as upstream: the upgrade command stays off. A consumer that
+          # wants it enables it with `commands: [lint, upgrade]`; with
+          # hold_the_line off, every newer upstream release then blocks the
+          # commit, so the pinact-outdated action is the notification path.
           enabled: false
       direct_configs:
         - .pinact.yml
