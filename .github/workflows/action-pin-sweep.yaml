@@ -1,0 +1,55 @@
+name: Action pin sweep
+
+# Weekly, across every owned repository that enforces pinact: find SHA-pinned
+# GitHub Actions with a newer release and keep one tracking issue here current.
+# Nothing is edited and no pull request is opened in any repository; the issue
+# comment is the whole notification. See docs/notes/2026-09-16-action-pin-sweep.md.
+
+on:
+  schedule:
+    # Saturday 07:00 KST, ahead of the operator's weekend maintenance.
+    - cron: 0 22 * * 5
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    name: Sweep owned repositories
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pinact
+        run: ./scripts/install-pinact.sh
+
+      # GH_TOKEN is a fine-grained or classic personal token that can list and
+      # read the owner's repositories, including private ones; the repository's
+      # own GITHUB_TOKEN cannot see them. pinact reads the same token for its
+      # release lookups.
+      # No pipe around the sweep: a failed listing must fail this step, so the
+      # issue is never rewritten from an empty report. `shell: bash` also turns
+      # pipefail on, which the default shell does not.
+      - name: Sweep
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          ./scripts/action-pin-sweep.sh "${{ github.repository_owner }}" >sweep.md
+          cat sweep.md
+          cat sweep.md >>"$GITHUB_STEP_SUMMARY"
+
+      # The tracking issue lives in this repository, so the workflow's own
+      # token, scoped to issues: write above, is enough here.
+      - name: Update the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/action-pin-sweep-report.sh sweep.md

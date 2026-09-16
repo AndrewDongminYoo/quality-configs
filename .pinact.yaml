@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/suzuki-shunsuke/pinact/refs/heads/main/json-schema/pinact.json
+# pinact - https://github.com/suzuki-shunsuke/pinact
+version: 3
+# Only the real workflow files are pin targets. tests/fixtures/ holds deliberately
+# stale and unpinned action files that scripts/test-plugin.sh copies into
+# throwaway consumer repositories; scanned in place they would be reported as
+# outdated pins every week. Listing patterns here replaces pinact's default
+# set, which otherwise includes every action.yaml in the tree (measured with
+# pinact 4.1.1 on 2026-09-16).
+files:
+  - pattern: .github/workflows/*.yaml
+  - pattern: .github/workflows/*.yml
