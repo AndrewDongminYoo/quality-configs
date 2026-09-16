@@ -94,18 +94,14 @@ A consumer that does not want it disables it locally under `actions.disabled`, t
 ### Outdated Action Pins
 
 The baseline pins GitHub Actions to commit SHAs through `pinact`, and a pin only stays current if something watches upstream releases.
-Two opt-in pieces do that watching as notifications, never as pull requests, because one Dependabot pull request per action per repository was the volume the operator turned Dependabot off to avoid.
+The watching is done as notifications, never as pull requests, because one Dependabot pull request per action per repository was the volume the operator turned Dependabot off to avoid.
 
 [`pinact-outdated`](./actions/pinact-outdated/plugin.yaml) is a trunk action that once a day copies the repository's workflow and action files aside, runs `pinact run --update` on the copy, and reports each `uses:` whose upstream has a newer release as a `notification_v1` message.
 It edits nothing; re-pinning stays a local `pinact run` from the repository root after editing the version comment to the tag you want, and the notification carries that command with the path of the pinact binary the scan used, because trunk's `github-actions` file type reaches only `.github/actions/**` while the scan covers every `action.yml` in the tree.
 The plugin defines it but does not enable it, since it calls the GitHub API from the daemon; a consumer opts in with `trunk actions enable pinact-outdated`, and the action is silent when pinact is unavailable.
 
-[`action-pin-sweep.yaml`](./.github/workflows/action-pin-sweep.yaml) runs the same scan weekly, in this repository's CI, across every owned repository whose `.trunk/trunk.yaml` enables `pinact`, either by a local entry or by inheriting it from this plugin, and does not disable it.
-It keeps one tracking issue here, labelled `action-pin-sweep`, whose body is the current list of outdated pins, and comments on it only when that list changes.
-Because this repository, its Actions log and that issue are public, private repositories appear in the report only as counts; `scripts/action-pin-sweep.sh --show-private <owner>` on the operator's machine lists them.
-The sweep reads the owner's repositories through the `GH_TOKEN` repository secret, a personal token with read access to them; the tracking issue is written with the workflow's own token.
-A failed repository listing, or a run that scanned nothing, fails the job rather than reporting every pin as current.
-`docs/notes/2026-09-16-action-pin-sweep.md` records the measurements behind the design.
+A weekly sweep across every owned repository ran here once, on 2026-09-16, and was removed the same day: its tracking issue in this public repository read as a defect report against the plugin, which it was not.
+`docs/notes/2026-09-16-action-pin-sweep.md` keeps the design, the measurements and the reason for the removal; the sweep belongs in a place whose issues are not this plugin's.
 
 ## Local Evaluation
 
