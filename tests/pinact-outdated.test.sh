@@ -62,6 +62,13 @@ case "${PINACT_STUB_MODE:-bump}" in
     rm -f .github/workflows/ci.yml.bak
     ;;
   current) ;;
+  bump-all)
+    # Same rewrite as bump, applied to every workflow file in the copy.
+    for f in .github/workflows/*.yml; do
+      sed -i.bak 's|pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10|pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0|' "$f"
+      rm -f "$f.bak"
+    done
+    ;;
   nested)
     sed -i.bak 's|actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0|actions/setup-node@0000000000000000000000000000000000000000 # v7.1.0|' actions/setup/action.yml
     rm -f actions/setup/action.yml.bak
@@ -109,6 +116,20 @@ if [[ "$actual" == "$expected_nested" ]]; then
 else
   fail "nested action report: $actual"
 fi
+
+# 2c. A symlinked workflow is materialized in the copy, so pinact's write lands
+#     in the copy and the link's real target stays untouched.
+mkdir -p "$fixture/shared"
+cp "$test_root/ci.yml.orig" "$fixture/shared/linked.yml"
+ln -s ../../shared/linked.yml "$fixture/.github/workflows/linked.yml"
+actual=$(PINACT_STUB_MODE=bump-all bash "$core" "$fixture")
+if grep -q '^\.github/workflows/linked\.yml:8: ' <<<"$actual" && cmp -s "$fixture/shared/linked.yml" "$test_root/ci.yml.orig"; then
+  pass "a symlinked workflow is scanned through a copy and its target stays untouched"
+else
+  fail "symlink case: report [$actual], target changed: $(cmp -s "$fixture/shared/linked.yml" "$test_root/ci.yml.orig" || echo yes)"
+fi
+rm "$fixture/.github/workflows/linked.yml"
+rm -r "$fixture/shared"
 
 # 3. Nothing is printed when every pin is current, and the exit code is still 0.
 if actual=$(PINACT_STUB_MODE=current bash "$core" "$fixture") && [[ -z "$actual" ]]; then
@@ -200,6 +221,11 @@ if out=$(cd "$fixture" && PINACT_STUB_MODE=resolved-nothing bash "$notify") && [
   pass "a partial scan that resolved nothing keeps the last notification"
 else
   fail "a partial scan that resolved nothing printed: $out"
+fi
+if out=$(cd "$fixture" && PINACT_STUB_MODE=partial bash "$notify") && grep -q "The scan was partial" <<<"$out" && grep -q "pnpm/action-setup" <<<"$out"; then
+  pass "a partial scan with findings is marked partial in the notification"
+else
+  fail "a partial scan with findings printed: $out"
 fi
 
 # 8. A sweep in which every scan failed exits nonzero instead of reporting

@@ -61,19 +61,22 @@ mkdir -p "$orig" "$copy"
 # and every action.yml or action.yaml anywhere in the tree (a composite action
 # can live in any directory, and pinact finds it there), at the same relative
 # path so the diff reports the real location.
+# Every copy dereferences symlinks (-L): a symlinked workflow copied as a link
+# would still point into the real repository, and pinact writing through it
+# would edit the original. The copy holds regular files only.
 copy_tree() {
   local dest=$1
-  [[ -d "$root/.github" ]] && cp -R "$root/.github" "$dest/.github"
+  [[ -d "$root/.github" ]] && cp -RL "$root/.github" "$dest/.github"
   local f
   for f in .pinact.yml .pinact.yaml; do
-    [[ -f "$root/$f" ]] && cp "$root/$f" "$dest/$f"
+    [[ -f "$root/$f" ]] && cp -L "$root/$f" "$dest/$f"
   done
   local rel
   while IFS= read -r rel; do
     rel=${rel#./}
     mkdir -p "$dest/$(dirname "$rel")"
-    cp "$root/$rel" "$dest/$rel"
-  done < <(cd "$root" && find . -path ./.git -prune -o -path ./.github -prune -o \( -name action.yml -o -name action.yaml \) -type f -print)
+    cp -L "$root/$rel" "$dest/$rel"
+  done < <(cd "$root" && find . -path ./.git -prune -o -path ./.github -prune -o \( -name action.yml -o -name action.yaml \) \( -type f -o -type l \) -print)
   return 0
 }
 copy_tree "$orig"

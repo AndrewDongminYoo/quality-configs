@@ -34,12 +34,14 @@ fi
 count=$(printf '%s\n' "$report" | wc -l | tr -d ' ')
 noun="pins have"
 [[ "$count" == 1 ]] && noun="pin has"
+partial_note=""
+((status == 3)) && partial_note=" The scan was partial (pinact could not resolve every line), so more pins may be outdated."
 
 printf 'notifications:\n'
 printf '  - id: %s\n' "$id"
 printf '    title: GitHub Actions pins\n'
 printf '    message: |\n'
-printf '      %s action %s a newer release. Edit the version comment to the tag you want, then run pinact from the repository root to pin it:\n' "$count" "$noun"
+printf '      %s action %s a newer release.%s Edit the version comment to the tag you want, then run pinact from the repository root to pin it:\n' "$count" "$noun" "$partial_note"
 printf '%s\n' "$report" | sed 's/^/      /'
 # The repair runs pinact itself from the repository root, not trunk: the scan
 # covers every action.yml in the tree, while trunk's github-actions file type
