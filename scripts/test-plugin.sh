@@ -312,6 +312,30 @@ STAND_IN
   fi
 }
 
+# The pinact-outdated action is opt-in, so the consumer enables it here. With
+# no workflow file in the consumer there is nothing for pinact to look up, so
+# the run is offline and deterministic: the action must clear its own
+# notification rather than stay silent, which proves the definition resolved,
+# the script ran, and its notification_v1 document reached trunk. The report
+# format itself is covered by tests/pinact-outdated.test.sh.
+expect_action_clears_notification() {
+  local action_id=$1
+  local output_file="$test_root/${action_id}-clears.log"
+
+  trunk actions enable "$action_id" --no-progress >/dev/null
+  expect_action_enabled "$action_id"
+  if ! trunk actions run "$action_id" --no-progress --color=false >"$output_file" 2>&1; then
+    printf '%s failed on a consumer without workflows\n' "$action_id" >&2
+    cat "$output_file" >&2
+    exit 1
+  fi
+  if ! grep -Fq "notifications_to_delete" "$output_file"; then
+    printf '%s ran but did not emit a notifications_to_delete document\n' "$action_id" >&2
+    cat "$output_file" >&2
+    exit 1
+  fi
+}
+
 assert_generated_output_contains() {
   local expected_text=$1
 
@@ -333,6 +357,7 @@ initialize_repository "$baseline_root"
   expect_action_enabled security-review-findings
   expect_action_silent security-review-findings
   expect_action_prints security-review-findings
+  expect_action_clears_notification pinact-outdated
 
   cp "$repo_root/tests/fixtures/violations/cspell.md" spell.md
   expect_failure cspell spell.md

@@ -36,5 +36,13 @@ jobs:
           test -x "$TRUNK_PATH"
           dirname "$TRUNK_PATH" | tee -a "$GITHUB_PATH"
 
+      - name: Test the pinact-outdated report format
+        run: ./tests/pinact-outdated.test.sh
+
+      # The consumer proof runs the pinact-outdated action, which needs pinact on
+      # PATH; the runner has no trunk tool cache to fall back on.
+      - name: Install pinact
+        run: ./scripts/install-pinact.sh
+
       - name: Run the plugin and profile proof
         run: ./scripts/test-plugin.sh
