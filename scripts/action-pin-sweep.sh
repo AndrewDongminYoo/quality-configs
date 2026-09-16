@@ -34,28 +34,79 @@ set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 core="$here/../actions/pinact-outdated/pinact-outdated.sh"
 
-# True when the trunk.yaml on stdin enables pinact and does not disable it.
-# pinact is enabled either by a literal entry under `lint.enabled`, with or
-# without a version, or by inheritance from the quality-configs plugin, whose
-# root plugin.yaml enables it for every consumer that lists the plugin under
-# `plugins.sources` (by its GitHub uri, or as the local source this repository
-# uses on itself). A `lint.disabled` entry wins over both: trunk uses it to
-# switch off a linter that a plugin or profile enables, so a repository that
-# carries it has chosen floating tags.
-enforces_pinact() {
+# Classify the trunk.yaml on stdin. Prints one word: `enabled` when pinact is
+# listed under `lint.enabled` (with or without a version, plain or in trunk's
+# mapping form `- pinact@x:` that carries `commands:`), `disabled` when it is
+# listed under `lint.disabled` (which wins: trunk uses it to switch off a
+# linter that a plugin or profile enables, so that repository has chosen
+# floating tags), `inherited <ref>` when neither is listed but the
+# quality-configs plugin is a source (by GitHub uri, or as the local source
+# this repository uses on itself; `local` when no ref is given), and `none`.
+classify_pinact() {
   awk '
     /^lint:/            { in_lint = 1; in_plugins = 0; section = ""; next }
     /^plugins:/         { in_plugins = 1; in_lint = 0; section = ""; next }
     /^[A-Za-z]/         { in_lint = 0; in_plugins = 0; section = ""; next }
     in_lint && /^  [a-z_]+:/ { section = $1; sub(":", "", section); next }
-    in_lint && /^ +- pinact(@[0-9][0-9A-Za-z.+-]*)? *$/ {
+    in_lint && /^ +- pinact(@[0-9][0-9A-Za-z.+-]*)?:? *$/ {
       if (section == "enabled") enabled = 1
       if (section == "disabled") disabled = 1
     }
-    in_plugins && /^ +(- )?uri: +https:\/\/github\.com\/AndrewDongminYoo\/quality-configs(\.git)? *$/ { inherited = 1 }
-    in_plugins && /^ +(- )?id: +quality-configs *$/ { inherited = 1 }
-    END                 { exit ((enabled || inherited) && !disabled) ? 0 : 1 }
+    # A source entry starts at "- "; its id, uri and ref may come in any order.
+    in_plugins && /^ +- / { if (qc) { inherited = 1; ref = src_ref }; qc = 0; src_ref = "" }
+    in_plugins && /^ +(- )?uri: +https:\/\/github\.com\/AndrewDongminYoo\/quality-configs(\.git)? *$/ { qc = 1 }
+    in_plugins && /^ +(- )?id: +quality-configs *$/ { qc = 1 }
+    in_plugins && /^ +(- )?ref: / { src_ref = $NF }
+    END {
+      if (qc) { inherited = 1; ref = src_ref }
+      if (disabled) print "disabled"
+      else if (enabled) print "enabled"
+      else if (inherited) print "inherited " (ref == "" ? "local" : ref)
+      else print "none"
+    }
   '
+}
+
+# Whether the plugin revision a consumer pins enables pinact: the consumer
+# inherits whatever that revision's plugin.yaml enables, and early releases
+# did not enable it. Read through the API once per ref and remembered.
+# Exit 0 when it does, 1 when it does not, 2 when the revision could not be
+# read, which is not a verdict and must not pass as "does not".
+declare -A plugin_ref_enables=()
+plugin_enables_pinact() {
+  local ref=$1
+  if [[ -z "${plugin_ref_enables[$ref]+x}" ]]; then
+    local content=""
+    if [[ "$ref" == local ]]; then
+      content=$(cat "$here/../plugin.yaml" 2>/dev/null) || content=""
+    else
+      content=$(gh api "repos/AndrewDongminYoo/quality-configs/contents/plugin.yaml?ref=$ref" --jq '.content' 2>/dev/null | base64 -d 2>/dev/null) || content=""
+    fi
+    if [[ -z "$content" ]]; then
+      plugin_ref_enables[$ref]=2
+    elif [[ "$(printf '%s\n' "$content" | classify_pinact)" == enabled ]]; then
+      plugin_ref_enables[$ref]=0
+    else
+      plugin_ref_enables[$ref]=1
+    fi
+  fi
+  return "${plugin_ref_enables[$ref]}"
+}
+
+# Whether the trunk.yaml on stdin enforces pinact, directly or through a
+# plugin revision that enables it. Exit 0 when it does, 1 when it does not,
+# 2 when the answer depends on a plugin revision that could not be read.
+enforces_pinact() {
+  local verdict ref
+  verdict=$(classify_pinact)
+  case "$verdict" in
+    enabled) return 0 ;;
+    inherited\ *)
+      ref=${verdict#inherited }
+      plugin_enables_pinact "$ref"
+      ;;
+    *) return 1 ;;
+  esac
 }
 
 show_private=0
@@ -176,8 +227,13 @@ while IFS=$'\t' read -r repo is_private; do
     fi
     continue
   fi
-  if ! printf '%s' "$trunk_b64" | base64 -d | enforces_pinact; then
+  scope=0
+  printf '%s' "$trunk_b64" | base64 -d | enforces_pinact || scope=$?
+  if ((scope == 1)); then
     skipped_not_enforcing=$((skipped_not_enforcing + 1))
+    continue
+  elif ((scope != 0)); then
+    record_problem error "$full" "could not read the pinned quality-configs revision to decide scope" "$is_private"
     continue
   fi
 

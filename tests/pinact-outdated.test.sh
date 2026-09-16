@@ -226,7 +226,7 @@ version: 0.1
 plugins:
   sources:
     - id: quality-configs
-      ref: v0.6.0
+      ref: v9.0.0
       uri: https://github.com/AndrewDongminYoo/quality-configs
 lint:
   enabled:
@@ -239,22 +239,63 @@ version: 0.1
 plugins:
   sources:
     - id: quality-configs
-      ref: v0.6.0
+      ref: v9.0.0
       uri: https://github.com/AndrewDongminYoo/quality-configs
 lint:
   disabled:
     - pinact
 YAML
 )
-if bash "$sweep" --enforces-pinact <<<"$inherited"; then
-  pass "a consumer inheriting pinact from the plugin is selected"
+# The inheritance check reads the plugin revision the consumer pins; a gh stub
+# answers for the fictional v9.0.0 (enables pinact) and v0.1.0 (predates it).
+gh_plugin_dir="$test_root/gh-plugin"
+mkdir -p "$gh_plugin_dir"
+cat >"$gh_plugin_dir/gh" <<'SH'
+#!/bin/bash
+case "$*" in
+  *"contents/plugin.yaml?ref=v9.0.0"*) printf 'version: 0.1\nlint:\n  enabled:\n    - pinact@4.0.0\n' | base64 ;;
+  *"contents/plugin.yaml?ref=v0.1.0"*) printf 'version: 0.1\nlint:\n  enabled:\n    - prettier@3.9.6\n' | base64 ;;
+  *) echo "stub: unexpected gh $*" >&2; exit 64 ;;
+esac
+SH
+chmod +x "$gh_plugin_dir/gh"
+if PATH="$gh_plugin_dir:$PATH" bash "$sweep" --enforces-pinact <<<"$inherited"; then
+  pass "a consumer inheriting pinact from a plugin revision that enables it is selected"
 else
   fail "a consumer inheriting pinact from the plugin was skipped"
 fi
-if bash "$sweep" --enforces-pinact <<<"$inherited_disabled"; then
+if PATH="$gh_plugin_dir:$PATH" bash "$sweep" --enforces-pinact <<<"$inherited_disabled"; then
   fail "a consumer that disables the inherited pinact was selected"
 else
   pass "a consumer that disables the inherited pinact is skipped"
+fi
+early=${inherited/ref: v9.0.0/ref: v0.1.0}
+if PATH="$gh_plugin_dir:$PATH" bash "$sweep" --enforces-pinact <<<"$early"; then
+  fail "a consumer pinned to a plugin revision without pinact was selected"
+else
+  pass "a consumer pinned to a plugin revision without pinact is skipped"
+fi
+unreadable=${inherited/ref: v9.0.0/ref: v8.8.8}
+rc=0
+PATH="$gh_plugin_dir:$PATH" bash "$sweep" --enforces-pinact <<<"$unreadable" 2>/dev/null || rc=$?
+if ((rc == 2)); then
+  pass "an unreadable plugin revision is reported as unknown, not as disabled"
+else
+  fail "an unreadable plugin revision exited $rc instead of 2"
+fi
+mapping=$(
+  cat <<'YAML'
+version: 0.1
+lint:
+  enabled:
+    - pinact@4.1.1:
+        commands: [lint, upgrade]
+YAML
+)
+if bash "$sweep" --enforces-pinact <<<"$mapping"; then
+  pass "trunk's mapping form of an enabled pinact entry is selected"
+else
+  fail "trunk's mapping form of an enabled pinact entry was skipped"
 fi
 
 # 7. The notification adapter clears its notification only after a complete
@@ -275,6 +316,19 @@ if out=$(cd "$fixture" && PINACT_STUB_MODE=partial bash "$notify") && grep -q "T
   pass "a partial scan with findings is marked partial in the notification"
 else
   fail "a partial scan with findings printed: $out"
+fi
+# The notification with findings must be a document trunk can parse; ruby's
+# YAML parser is the one the repository's own proof already relies on.
+if command -v ruby >/dev/null 2>&1; then
+  out=$(cd "$fixture" && PINACT_STUB_MODE=bump bash "$notify")
+  if printf '%s\n' "$out" | ruby -ryaml -e 'd = YAML.safe_load(STDIN.read); n = d.fetch("notifications").first; abort unless n["commands"].first["run"].end_with?(" run") && n["message"].include?("pnpm/action-setup")'; then
+    pass "a notification with findings parses as YAML with its command intact"
+  else
+    fail "a notification with findings did not parse as YAML:
+$out"
+  fi
+else
+  printf 'skip: ruby is not available, the notification YAML was not parsed\n'
 fi
 
 # 8. A sweep in which every scan failed exits nonzero instead of reporting
