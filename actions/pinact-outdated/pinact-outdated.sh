@@ -88,29 +88,38 @@ copy_tree "$copy"
 pinact_status=0
 (cd "$copy" && "$pinact_bin" run --update >"$work/pinact.log" 2>&1) || pinact_status=$?
 
-# `diff -r -U0` gives one hunk per changed run of lines; pinact changes one
-# line per `uses:`, so old and new lines pair up by position inside a hunk.
-# The awk keeps only the `uses:` value of each side.
-diff -r -U0 "$orig" "$copy" 2>/dev/null | awk -v prefix="$copy/" '
-  function flush(   i) {
-    for (i = 1; i <= n_old && i <= n_new; i++) {
-      printf "%s:%d: %s -> %s\n", file, start + i - 1, old[i], new[i]
+# Each copied file is diffed against its original by path, so the report
+# never parses a diff header (which GNU diff quotes when a path has a space).
+# `diff -U0` gives one hunk per changed run of lines; pinact changes one line
+# per `uses:`, so old and new lines pair up by position inside a hunk. The
+# awk keeps only the `uses:` value of each side.
+report_file() {
+  local rel=$1
+  diff -U0 "$orig/$rel" "$copy/$rel" 2>/dev/null | awk -v file="$rel" '
+    function flush(   i) {
+      for (i = 1; i <= n_old && i <= n_new; i++) {
+        printf "%s:%d: %s -> %s\n", file, start + i - 1, old[i], new[i]
+      }
+      n_old = 0; n_new = 0
     }
-    n_old = 0; n_new = 0
-  }
-  function uses_value(line) {
-    sub(/^[-+]/, "", line)
-    sub(/^[ \t]*-?[ \t]*uses:[ \t]*/, "", line)
-    sub(/[ \t]+$/, "", line)
-    return line
-  }
-  /^\+\+\+ / { flush(); file = $2; sub("^" prefix, "", file); next }
-  /^--- /    { next }
-  /^@@ /     { flush(); s = $0; sub(/^@@ -[0-9,]+ \+/, "", s); sub(/[ ,].*$/, "", s); start = s + 0; next }
-  /^-/       { old[++n_old] = uses_value($0); next }
-  /^\+/      { new[++n_new] = uses_value($0); next }
-  END        { flush() }
-' || true
+    function uses_value(line) {
+      sub(/^[-+]/, "", line)
+      sub(/^[ \t]*-?[ \t]*uses:[ \t]*/, "", line)
+      sub(/[ \t]+$/, "", line)
+      return line
+    }
+    /^(\+\+\+|---) / { next }
+    /^@@ /     { flush(); s = $0; sub(/^@@ -[0-9,]+ \+/, "", s); sub(/[ ,].*$/, "", s); start = s + 0; next }
+    /^-/       { old[++n_old] = uses_value($0); next }
+    /^\+/      { new[++n_new] = uses_value($0); next }
+    END        { flush() }
+  ' || true
+}
+while IFS= read -r rel; do
+  rel=${rel#./}
+  [[ -f "$orig/$rel" ]] || continue
+  report_file "$rel"
+done < <(cd "$copy" && find . -type f | sort)
 
 if ((pinact_status != 0)); then
   echo "pinact-outdated: pinact reported errors in $root (exit $pinact_status); the lines above are the ones it could resolve" >&2

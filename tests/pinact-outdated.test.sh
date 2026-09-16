@@ -131,6 +131,16 @@ fi
 rm "$fixture/.github/workflows/linked.yml"
 rm -r "$fixture/shared"
 
+# 2d. A workflow whose path contains a space is reported with its full path.
+cp "$test_root/ci.yml.orig" "$fixture/.github/workflows/with space.yml"
+actual=$(PINACT_STUB_MODE=bump-all bash "$core" "$fixture")
+if grep -q '^\.github/workflows/with space\.yml:8: pnpm/action-setup@0977' <<<"$actual"; then
+  pass "a path with a space is reported in full"
+else
+  fail "path with a space: $actual"
+fi
+rm "$fixture/.github/workflows/with space.yml"
+
 # 3. Nothing is printed when every pin is current, and the exit code is still 0.
 if actual=$(PINACT_STUB_MODE=current bash "$core" "$fixture") && [[ -z "$actual" ]]; then
   pass "a current repository prints nothing"

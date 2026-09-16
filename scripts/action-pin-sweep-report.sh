@@ -27,7 +27,7 @@ report=$(cat "$report_file")
 # from one repository to another read as no change.
 body=$(printf '%s\n' "$report" | sed '1,/^$/d')
 outdated_set() {
-  grep -E '^(### |- `|[0-9]+ private repositories |Private set digest: )'
+  grep -E '^(### |- `|Private outdated set: |Private set digest: )'
 }
 has_findings=0
 grep -q '^### ' <<<"$body" && has_findings=1

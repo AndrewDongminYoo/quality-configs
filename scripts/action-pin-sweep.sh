@@ -130,7 +130,9 @@ record_finding() {
   if [[ "$is_private" == true && "$show_private" == 0 ]]; then
     private_outdated_repos=$((private_outdated_repos + 1))
     private_outdated_pins=$((private_outdated_pins + count))
-    private_lines+="$full"$'\n'"$report"$'\n'
+    # One record per finding, carrying its repository, so the digest changes
+    # when a pin moves between repositories.
+    private_lines+=$(printf '%s\n' "$report" | sed "s|^|$full\t|")$'\n'
     return 0
   fi
   findings+="### $full"$'\n\n'
@@ -234,12 +236,20 @@ elif ((private_outdated_repos == 0)); then
 fi
 if ((private_outdated_repos > 0 || private_incomplete > 0)); then
   printf '### Private repositories\n\n'
-  printf '%d private repositories were scanned; %d of them have %d outdated pins, and %d could not be scanned completely.\n' \
-    "$private_swept" "$private_outdated_repos" "$private_outdated_pins" "$private_incomplete"
+  # The scanned total is on its own line, outside what the reporter compares:
+  # a private repository entering or leaving scope is not a change in the set.
+  printf 'Scanned %d private repositories.\n' "$private_swept"
+  printf 'Private outdated set: %d repositories with %d outdated pins, %d not scanned completely.\n' \
+    "$private_outdated_repos" "$private_outdated_pins" "$private_incomplete"
   printf 'They are not named here because this report is public; run the sweep locally with --show-private to list them.\n'
-  # The digest is over the sorted private lines, so it moves when a private
-  # finding appears, disappears or changes, and only then.
-  printf 'Private set digest: %s\n\n' "$(printf '%s' "$private_lines" | sort | shasum -a 256 | cut -c1-16)"
+  # The digest is a keyed SHA-256 hash over the sorted private records, keyed
+  # by the token the sweep runs under, so it moves when a private finding
+  # appears, disappears, changes or moves between repositories, and a reader
+  # of the public issue cannot confirm a guessed repository name against it.
+  # Rotating the token changes every digest once, which costs one comment.
+  # cspell:ignore dgst hmac
+  digest_key=${GH_TOKEN:-$(gh auth token 2>/dev/null || true)}
+  printf 'Private set digest: %s\n\n' "$(printf '%s' "$private_lines" | sort | openssl dgst -sha256 -hmac "$digest_key" | sed 's/^.*= //' | cut -c1-16)"
 fi
 if [[ -n "$partial" ]]; then
   printf '### Partially scanned\n\nThese repositories carry a reference pinact cannot pin, such as a branch; the pins it could resolve are listed above. An ignore rule in the repository .pinact.yaml makes the scan complete.\n\n%s\n' "$partial"
