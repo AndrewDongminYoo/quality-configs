@@ -23,7 +23,7 @@ The watcher is therefore pinact itself, run against a copy of the files so nothi
 
 - `actions/pinact-outdated/pinact-outdated.sh` copies `.github/`, every `action.yml` and `action.yaml` outside `.github` at its relative path, and any `.pinact.yml` or `.pinact.yaml` to a temporary directory, dereferencing symlinks so the copy holds regular files only, runs `pinact run --update` there, and prints one line per changed `uses:` value.
 - `actions/pinact-outdated/notify.sh` wraps that as a trunk action on a 24-hour schedule with `notification_v1` output, opt-in per consumer.
-- `.github/workflows/action-pin-sweep.yaml` runs the same script weekly across every owned repository that enables `pinact`, and keeps one tracking issue current, commenting only when the set of outdated pins changes.
+- `.github/workflows/action-pin-sweep.yaml` (removed by PR #6; last at `e49a81c`) ran the same script weekly across every owned repository that enables `pinact`, and kept one tracking issue current, commenting only when the set of outdated pins changed.
 
 The trunk `pinact` linter already ships an `upgrade` command that runs `pinact run --update` and reports the result as SARIF; it is disabled in the definition and a consumer can enable it with `commands: [lint, upgrade]`.
 It was not used for this because `hold_the_line` is off for pinact, so an enabled `upgrade` turns every newer upstream release into a pre-commit finding that blocks the commit, which is a gate rather than a notification.
@@ -93,6 +93,6 @@ That copy made this repository's own `tests/fixtures/*/action.yaml`, deliberatel
 
 ## Token
 
-The sweep runs under the repository secret `GH_TOKEN`, a personal access token that can list and read the owner's repositories including private ones.
-The workflow scopes every listing to the owner by name, so the token's reach beyond that owner is never exercised.
-The tracking issue is written with the workflow's own `GITHUB_TOKEN`, scoped to `issues: write`, so the personal token is never used for a write.
+The sweep ran under a repository secret `GH_TOKEN`, a personal access token that could list and read the owner's repositories including private ones; the operator deleted that secret on 2026-09-16 after the workflow was removed, and nothing in this repository reads it now.
+The workflow scoped every listing to the owner by name, so the token's reach beyond that owner was never exercised.
+The tracking issue was written with the workflow's own `GITHUB_TOKEN`, scoped to `issues: write`, so the personal token was never used for a write.
