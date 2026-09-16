@@ -12,7 +12,7 @@ Dependabot was withheld because one pull request per action per repository, each
 
 The watcher is therefore pinact itself, run against a copy of the files so nothing is edited:
 
-- `actions/pinact-outdated/pinact-outdated.sh` copies `.github/`, the root `action.yml`, and any `.pinact.yaml` to a temporary directory, runs `pinact run --update` there, and prints one line per changed `uses:` value.
+- `actions/pinact-outdated/pinact-outdated.sh` copies `.github/`, every `action.yml` and `action.yaml` outside `.github` at its relative path, and any `.pinact.yml` or `.pinact.yaml` to a temporary directory, dereferencing symlinks so the copy holds regular files only, runs `pinact run --update` there, and prints one line per changed `uses:` value.
 - `actions/pinact-outdated/notify.sh` wraps that as a trunk action on a 24-hour schedule with `notification_v1` output, opt-in per consumer.
 - `.github/workflows/action-pin-sweep.yaml` runs the same script weekly across every owned repository that enables `pinact`, and keeps one tracking issue current, commenting only when the set of outdated pins changes.
 
@@ -47,6 +47,11 @@ The durable fix belongs to the repository: an `ignore` rule in `.pinact.yaml` (p
 Only repositories whose `.trunk/trunk.yaml` lists `pinact` under `lint.enabled` and not under `lint.disabled` are scanned.
 A repository that disabled `pinact` chose floating tags, and reporting a newer release there would ask it to reverse a policy the sweep does not own.
 The `disabled` entry wins because trunk uses it to switch off a linter that a plugin or profile enables.
+
+## Hosted Review Round
+
+CodeRabbit's first round on PR #4 added five corrections, all applied: a symlinked workflow copied with `cp -R` stays a link into the real repository and pinact would write through it, so every copy now dereferences (`cp -L`); a partial scan's notification now says it was partial; `gh repo list --limit` succeeds silently at its cap, so a listing that reaches the limit fails the sweep as truncated; the tracking-issue comment is posted before the body edit, so a failed comment fails the step before the body records the new state and the next run retries; and the note's description of the copied files was corrected.
+Codex's first round found that the notification's repair command targeted `.github` only while the scan covers every `action.yml` in the tree; the command is now `pinact run` from the repository root by the binary's absolute path, because trunk's `github-actions` file type matches only `.github/actions/**`.
 
 ## What the Public Report May Say
 
