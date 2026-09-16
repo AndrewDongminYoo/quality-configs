@@ -54,6 +54,7 @@ CodeRabbit's first round on PR #4 added five corrections, all applied: a symlink
 Codex's first round found that the notification's repair command targeted `.github` only while the scan covers every `action.yml` in the tree; the command is now `pinact run` from the repository root by the binary's absolute path, because trunk's `github-actions` file type matches only `.github/actions/**`.
 
 Codex's second round, on the fixed head, found two more: a consumer that inherits `pinact` from this plugin without repeating it locally (one landing-page repository did so on 2026-09-16, and the corrected filter brought six more repositories into scope, 39 instead of 33) was classified as not enforcing it, so the scope filter now also accepts a `plugins.sources` entry for quality-configs, still overridden by a local `lint.disabled`; and two private sets with equal counts produced identical public reports, so the private section now carries a 16-character sha256 digest of the sorted private lines, which the reporter includes in the outdated set.
+A third Codex round noted that sorting the extracted lines let a pin that moved from one repository to another read as no change; the comparison now keeps the report's own order, which is deterministic.
 
 ## What the Public Report May Say
 

@@ -21,10 +21,13 @@ report=$(cat "$report_file")
 # comment decision reads only the outdated set out of it: repository headings,
 # the pin and problem bullets, the private-repository counts and the private
 # set digest. The sweep statistics ("Skipped N ...") change when an unrelated
-# repository appears and must not produce a comment on their own.
+# repository appears and must not produce a comment on their own. The lines
+# are kept in report order, not sorted: the sweep already lists repositories
+# by name and bullets in file order, and sorting would let a pin that moved
+# from one repository to another read as no change.
 body=$(printf '%s\n' "$report" | sed '1,/^$/d')
 outdated_set() {
-  grep -E '^(### |- `|[0-9]+ private repositories |Private set digest: )' | sort
+  grep -E '^(### |- `|[0-9]+ private repositories |Private set digest: )'
 }
 has_findings=0
 grep -q '^### ' <<<"$body" && has_findings=1
