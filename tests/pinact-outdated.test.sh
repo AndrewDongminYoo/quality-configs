@@ -208,6 +208,45 @@ else
   pass "a disabled entry overrides an inherited enabled one"
 fi
 
+# 6b. A consumer that inherits pinact from the quality-configs plugin, without
+#     repeating it locally, is in scope; a local disabled entry still wins.
+inherited=$(
+  cat <<'YAML'
+version: 0.1
+plugins:
+  sources:
+    - id: quality-configs
+      ref: v0.6.0
+      uri: https://github.com/AndrewDongminYoo/quality-configs
+lint:
+  enabled:
+    - actionlint@1.7.12
+YAML
+)
+inherited_disabled=$(
+  cat <<'YAML'
+version: 0.1
+plugins:
+  sources:
+    - id: quality-configs
+      ref: v0.6.0
+      uri: https://github.com/AndrewDongminYoo/quality-configs
+lint:
+  disabled:
+    - pinact
+YAML
+)
+if bash "$sweep" --enforces-pinact <<<"$inherited"; then
+  pass "a consumer inheriting pinact from the plugin is selected"
+else
+  fail "a consumer inheriting pinact from the plugin was skipped"
+fi
+if bash "$sweep" --enforces-pinact <<<"$inherited_disabled"; then
+  fail "a consumer that disables the inherited pinact was selected"
+else
+  pass "a consumer that disables the inherited pinact is skipped"
+fi
+
 # 7. The notification adapter clears its notification only after a complete
 #    scan; a partial scan that resolved nothing leaves the last one standing.
 notify="$repo_root/actions/pinact-outdated/notify.sh"

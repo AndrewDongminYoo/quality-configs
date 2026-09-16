@@ -100,7 +100,7 @@ Two opt-in pieces do that watching as notifications, never as pull requests, bec
 It edits nothing; re-pinning stays a local `pinact run` from the repository root after editing the version comment to the tag you want, and the notification carries that command with the path of the pinact binary the scan used, because trunk's `github-actions` file type reaches only `.github/actions/**` while the scan covers every `action.yml` in the tree.
 The plugin defines it but does not enable it, since it calls the GitHub API from the daemon; a consumer opts in with `trunk actions enable pinact-outdated`, and the action is silent when pinact is unavailable.
 
-[`action-pin-sweep.yaml`](./.github/workflows/action-pin-sweep.yaml) runs the same scan weekly, in this repository's CI, across every owned repository whose `.trunk/trunk.yaml` enables `pinact`.
+[`action-pin-sweep.yaml`](./.github/workflows/action-pin-sweep.yaml) runs the same scan weekly, in this repository's CI, across every owned repository whose `.trunk/trunk.yaml` enables `pinact`, either by a local entry or by inheriting it from this plugin, and does not disable it.
 It keeps one tracking issue here, labelled `action-pin-sweep`, whose body is the current list of outdated pins, and comments on it only when that list changes.
 Because this repository, its Actions log and that issue are public, private repositories appear in the report only as counts; `scripts/action-pin-sweep.sh --show-private <owner>` on the operator's machine lists them.
 The sweep reads the owner's repositories through the `GH_TOKEN` repository secret, a personal token with read access to them; the tracking issue is written with the workflow's own token.

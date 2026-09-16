@@ -19,12 +19,12 @@ title="Outdated GitHub Actions pins"
 report=$(cat "$report_file")
 # The body carries the whole report minus its title, never the date. The
 # comment decision reads only the outdated set out of it: repository headings,
-# the pin and problem bullets, and the private-repository counts. The sweep
-# statistics ("Skipped N ...") change when an unrelated repository appears
-# and must not produce a comment on their own.
+# the pin and problem bullets, the private-repository counts and the private
+# set digest. The sweep statistics ("Skipped N ...") change when an unrelated
+# repository appears and must not produce a comment on their own.
 body=$(printf '%s\n' "$report" | sed '1,/^$/d')
 outdated_set() {
-  grep -E '^(### |- `|[0-9]+ private repositories )' | sort
+  grep -E '^(### |- `|[0-9]+ private repositories |Private set digest: )' | sort
 }
 has_findings=0
 grep -q '^### ' <<<"$body" && has_findings=1

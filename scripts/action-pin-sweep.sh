@@ -34,20 +34,27 @@ set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 core="$here/../actions/pinact-outdated/pinact-outdated.sh"
 
-# True when the trunk.yaml on stdin lists pinact under `lint.enabled`, with or
-# without a version, and not under `lint.disabled`. A `disabled` entry wins:
-# trunk uses it to switch off a linter that a plugin or profile enables, so a
-# repository that carries both has chosen floating tags.
+# True when the trunk.yaml on stdin enables pinact and does not disable it.
+# pinact is enabled either by a literal entry under `lint.enabled`, with or
+# without a version, or by inheritance from the quality-configs plugin, whose
+# root plugin.yaml enables it for every consumer that lists the plugin under
+# `plugins.sources` (by its GitHub uri, or as the local source this repository
+# uses on itself). A `lint.disabled` entry wins over both: trunk uses it to
+# switch off a linter that a plugin or profile enables, so a repository that
+# carries it has chosen floating tags.
 enforces_pinact() {
   awk '
-    /^lint:/            { in_lint = 1; section = ""; next }
-    /^[A-Za-z]/         { in_lint = 0; section = ""; next }
+    /^lint:/            { in_lint = 1; in_plugins = 0; section = ""; next }
+    /^plugins:/         { in_plugins = 1; in_lint = 0; section = ""; next }
+    /^[A-Za-z]/         { in_lint = 0; in_plugins = 0; section = ""; next }
     in_lint && /^  [a-z_]+:/ { section = $1; sub(":", "", section); next }
     in_lint && /^ +- pinact(@[0-9][0-9A-Za-z.+-]*)? *$/ {
       if (section == "enabled") enabled = 1
       if (section == "disabled") disabled = 1
     }
-    END                 { exit (enabled && !disabled) ? 0 : 1 }
+    in_plugins && /^ +(- )?uri: +https:\/\/github\.com\/AndrewDongminYoo\/quality-configs(\.git)? *$/ { inherited = 1 }
+    in_plugins && /^ +(- )?id: +quality-configs *$/ { inherited = 1 }
+    END                 { exit ((enabled || inherited) && !disabled) ? 0 : 1 }
   '
 }
 
@@ -104,10 +111,13 @@ errors=""
 skipped_no_trunk=0
 skipped_not_enforcing=0
 # Private repositories are counted here and named only with --show-private.
+# Their findings and problems are also folded into a digest, so the public
+# report changes whenever the private set changes even when the counts do not.
 private_swept=0
 private_outdated_repos=0
 private_outdated_pins=0
 private_incomplete=0
+private_lines=""
 
 record_finding() {
   local full=$1 report=$2 is_private=$3
@@ -116,6 +126,7 @@ record_finding() {
   if [[ "$is_private" == true && "$show_private" == 0 ]]; then
     private_outdated_repos=$((private_outdated_repos + 1))
     private_outdated_pins=$((private_outdated_pins + count))
+    private_lines+="$full"$'\n'"$report"$'\n'
     return 0
   fi
   findings+="### $full"$'\n\n'
@@ -134,6 +145,7 @@ record_problem() {
   local kind=$1 full=$2 reason=$3 is_private=$4
   if [[ "$is_private" == true && "$show_private" == 0 ]]; then
     private_incomplete=$((private_incomplete + 1))
+    private_lines+="$kind $full: $reason"$'\n'
     return 0
   fi
   if [[ "$kind" == partial ]]; then
@@ -220,7 +232,10 @@ if ((private_outdated_repos > 0 || private_incomplete > 0)); then
   printf '### Private repositories\n\n'
   printf '%d private repositories were scanned; %d of them have %d outdated pins, and %d could not be scanned completely.\n' \
     "$private_swept" "$private_outdated_repos" "$private_outdated_pins" "$private_incomplete"
-  printf 'They are not named here because this report is public; run the sweep locally with --show-private to list them.\n\n'
+  printf 'They are not named here because this report is public; run the sweep locally with --show-private to list them.\n'
+  # The digest is over the sorted private lines, so it moves when a private
+  # finding appears, disappears or changes, and only then.
+  printf 'Private set digest: %s\n\n' "$(printf '%s' "$private_lines" | sort | shasum -a 256 | cut -c1-16)"
 fi
 if [[ -n "$partial" ]]; then
   printf '### Partially scanned\n\nThese repositories carry a reference pinact cannot pin, such as a branch; the pins it could resolve are listed above. An ignore rule in the repository .pinact.yaml makes the scan complete.\n\n%s\n' "$partial"
