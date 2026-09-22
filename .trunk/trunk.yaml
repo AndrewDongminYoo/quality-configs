@@ -7,6 +7,7 @@ plugins:
     - id: quality-configs
       local: .
 lint:
+  disabled: [grype, osv-scanner]
   ignore:
     - linters:
         [cspell, grype, markdownlint, osv-scanner, prettier, svgo, yamllint]
