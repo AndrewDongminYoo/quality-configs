@@ -437,6 +437,8 @@ awk -v id="$plugin_id" -v path="$plugin_root" '
     print "lint:"
     print "  enabled:"
     print "    - dart@3.10.8"
+    print "    - gdformat@4.5.0"
+    print "    - gdlint@4.5.0"
     print "    - grype@0.110.0"
     print "    - osv-scanner@2.4.0"
     print "    - pinact@4.0.0"
@@ -478,6 +480,30 @@ awk -v id="$plugin_id" -v path="$plugin_root" '
   expect_failure osv-scanner Gemfile.lock osv-scanner/ "Current version is vulnerable: 2.2.6.2." Gemfile.lock
   cp "$repo_root/tests/fixtures/clean/Gemfile.lock" Gemfile.lock
   expect_success osv-scanner Gemfile.lock
+
+  # gdlint exits 1 for an unparsable file as well as for a finding, so the
+  # parse-error fixture proves that such a file surfaces as an issue rather
+  # than as a clean result.
+  cp "$repo_root/tests/fixtures/violations/main.gd" main.gd
+  expect_failure gdlint main.gd gdlint/class-variable-name
+  assert_generated_output_contains '/plugin/linters/gdtoolkit/gdlint_to_sarif.py'
+  expect_format_failure gdformat main.gd
+  cp "$repo_root/tests/fixtures/violations/parse-error.gd" main.gd
+  expect_failure gdlint main.gd gdlint/parse-error "Unexpected token" main.gd
+  cp "$repo_root/tests/fixtures/clean/main.gd" main.gd
+  expect_success gdlint main.gd
+  expect_format_success gdformat main.gd
+
+  # Both tools read their rc file from the working directory upward, so a
+  # consumer's line limit applies only if run_from reaches it.
+  cp "$repo_root/tests/fixtures/violations/long-line.gd" main.gd
+  expect_failure gdlint main.gd gdlint/max-line-length
+  expect_format_failure gdformat main.gd
+  cp "$repo_root/tests/fixtures/overrides/gdlintrc" gdlintrc
+  cp "$repo_root/tests/fixtures/overrides/gdformatrc" gdformatrc
+  git add gdlintrc gdformatrc
+  expect_success gdlint main.gd
+  expect_format_success gdformat main.gd
 )
 
 for profile_name in flutter react-native next; do
