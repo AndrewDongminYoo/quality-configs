@@ -26,8 +26,9 @@ This plugin bundles [`runtimes/python`](./runtimes/python/plugin.yaml) so it can
 
 Dropping it is what makes the bundled linter definitions in [`linters/`](./linters) take effect.
 Trunk discovers those definitions by directory, but an external source that uses the same name wins.
-The bundled definitions provide `dart` and `toml-tidy` changes that are not yet available upstream.
-They also preserve `pinact`, `grype`, and the current `osv-scanner` download definition when a consumer drops `trunk-io/plugins`.
+The bundled `dart` definition is identical to upstream `main` since [trunk-io/plugins#1164](https://github.com/trunk-io/plugins/pull/1164) merged on 2026-09-09, but a consumer on `trunk-io/plugins` gets it only from an upstream release after `v1.11.0`, and as of 2026-09-26 `v1.11.0` is still the latest.
+The bundled `toml-tidy` raises `known_good_version` to `0.4.1`, which upstream has not adopted.
+The bundled definitions also preserve `pinact`, `grype`, and the current `osv-scanner` download definition when a consumer drops `trunk-io/plugins`.
 The bundled [`linters/plugin.yaml`](./linters/plugin.yaml) provides the `github-actions` file type that `pinact` uses for composite actions.
 The GDScript linters `gdformat` and `gdlint` in [`linters/gdtoolkit`](./linters/gdtoolkit/plugin.yaml) have no upstream counterpart, so they take effect whether or not the consumer keeps `trunk-io/plugins`; neither is enabled by default, and a Godot repository opts in by adding `gdformat@4.5.0` and `gdlint@4.5.0` to its own `lint.enabled`.
 
