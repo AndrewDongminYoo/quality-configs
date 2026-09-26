@@ -29,6 +29,7 @@ Trunk discovers those definitions by directory, but an external source that uses
 The bundled definitions provide `dart` and `toml-tidy` changes that are not yet available upstream.
 They also preserve `pinact`, `grype`, and the current `osv-scanner` download definition when a consumer drops `trunk-io/plugins`.
 The bundled [`linters/plugin.yaml`](./linters/plugin.yaml) provides the `github-actions` file type that `pinact` uses for composite actions.
+The GDScript linters `gdformat` and `gdlint` in [`linters/gdtoolkit`](./linters/gdtoolkit/plugin.yaml) have no upstream counterpart, so they take effect whether or not the consumer keeps `trunk-io/plugins`; neither is enabled by default, and a Godot repository opts in by adding `gdformat@4.5.0` and `gdlint@4.5.0` to its own `lint.enabled`.
 
 A consumer that drops the source must write this plugin into `plugins.sources` in the same edit that pins the runtime.
 `trunk plugins add` needs a configuration it can already resolve, so it cannot bootstrap a profile whose runtime only this plugin defines.

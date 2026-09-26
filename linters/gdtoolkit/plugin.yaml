@@ -1,0 +1,62 @@
+# GDScript support from gdtoolkit (https://github.com/Scony/godot-gdscript-toolkit).
+# trunk-io/plugins v1.11.0 defines neither linter nor the gdscript file type, so
+# these definitions take effect with or without that source.
+version: 0.1
+lint:
+  files:
+    - name: gdscript
+      extensions: [gd]
+      comments: [hash]
+  definitions:
+    - name: gdformat
+      files: [gdscript]
+      runtime: python
+      package: gdtoolkit
+      description: Formats GDScript with gdtoolkit
+      commands:
+        - name: format
+          output: rewrite
+          # gdformat reads gdformatrc from its working directory upward.
+          run_from: ${root_or_parent_with_any_config}
+          run: gdformat ${target}
+          success_codes: [0]
+          batch: true
+          in_place: true
+          formatter: true
+      direct_configs:
+        - gdformatrc
+        - .gdformatrc
+      suggest_if: config_present
+      known_good_version: 4.5.0
+      version_command:
+        parse_regex: gdformat ${semver}
+        run: gdformat --version
+
+    - name: gdlint
+      files: [gdscript]
+      runtime: python
+      package: gdtoolkit
+      description: Lints GDScript with gdtoolkit
+      commands:
+        - name: lint
+          output: sarif
+          # gdlint reads gdlintrc from its working directory upward.
+          run_from: ${root_or_parent_with_any_config}
+          run: gdlint ${target}
+          # Exit 1 covers both rule findings and unparsable files; the parser
+          # tells them apart and fails the run when its count disagrees with gdlint's.
+          success_codes: [0, 1]
+          read_output_from: stderr
+          batch: true
+          cache_results: true
+          parser:
+            runtime: python
+            run: python3 ${plugin}/linters/gdtoolkit/gdlint_to_sarif.py ${exit_code}
+      direct_configs:
+        - gdlintrc
+        - .gdlintrc
+      suggest_if: config_present
+      known_good_version: 4.5.0
+      version_command:
+        parse_regex: gdlint ${semver}
+        run: gdlint --version
