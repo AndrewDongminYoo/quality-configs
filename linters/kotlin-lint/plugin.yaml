@@ -12,7 +12,21 @@ lint:
       runtime: java
       description: Reports ktlint violations that formatting cannot fix
       commands:
+        # The download is saved as ktlint.exe on Windows, as the upstream
+        # definition's Windows format command assumes.
         - name: lint
+          platforms: [windows]
+          run: java -Xmx512m -jar ${linter}/ktlint.exe --relative --log-level=none --reporter=sarif "${target}"
+          output: sarif
+          success_codes: [0, 1]
+          read_output_from: stdout
+          batch: true
+          cache_results: true
+          parser:
+            runtime: python
+            run: python3 ${plugin}/linters/kotlin-lint/sarif_guard.py ${exit_code}
+        - name: lint
+          platforms: [linux, macos]
           run: java -Xmx512m -jar ${linter}/ktlint --relative --log-level=none --reporter=sarif "${target}"
           output: sarif
           # Exit 1 means violations were found, or that ktlint died before printing
