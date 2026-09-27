@@ -1,0 +1,49 @@
+# Reports every ktlint violation as SARIF, including those `ktlint -F` cannot fix.
+# The upstream `ktlint` definition only formats and accepts exit code 1, so a
+# rule ktlint cannot autocorrect never fails it. A separate name keeps
+# `${plugin}` pointing at this plugin whatever sources the consumer lists; a
+# partial override of `ktlint` resolved it to another source's root.
+version: 0.1
+lint:
+  definitions:
+    - name: kotlin-lint
+      files: [kotlin]
+      download: ktlint
+      runtime: java
+      description: Reports ktlint violations that formatting cannot fix
+      commands:
+        # The download is saved as ktlint.exe on Windows, as the upstream
+        # definition's Windows format command assumes.
+        - name: lint
+          platforms: [windows]
+          run: java -Xmx512m -jar ${linter}/ktlint.exe --relative --log-level=none --reporter=sarif "${target}"
+          output: sarif
+          success_codes: [0, 1]
+          read_output_from: stdout
+          batch: true
+          cache_results: true
+          parser:
+            runtime: python
+            run: python3 ${plugin}/linters/kotlin-lint/sarif_guard.py ${exit_code}
+        - name: lint
+          platforms: [linux, macos]
+          run: java -Xmx512m -jar ${linter}/ktlint --relative --log-level=none --reporter=sarif "${target}"
+          output: sarif
+          # Exit 1 means violations were found, or that ktlint died before printing
+          # them; the parser fails the run on the second.
+          success_codes: [0, 1]
+          read_output_from: stdout
+          batch: true
+          cache_results: true
+          parser:
+            runtime: python
+            run: python3 ${plugin}/linters/kotlin-lint/sarif_guard.py ${exit_code}
+      affects_cache:
+        - .editorconfig
+      environment:
+        - name: LANG
+          value: en_US.UTF-8
+      suggest_if: never
+      # No version_command: the linter always runs the downloaded ktlint, and a
+      # single command could not name the file on both Windows and elsewhere.
+      known_good_version: 1.8.0

@@ -31,6 +31,7 @@ The bundled `toml-tidy` raises `known_good_version` to `0.4.1`, which upstream h
 The bundled definitions also preserve `pinact`, `grype`, and the current `osv-scanner` download definition when a consumer drops `trunk-io/plugins`.
 The bundled [`linters/plugin.yaml`](./linters/plugin.yaml) provides the `github-actions` file type that `pinact` uses for composite actions.
 The GDScript linters `gdformat` and `gdlint` in [`linters/gdtoolkit`](./linters/gdtoolkit/plugin.yaml) have no upstream counterpart, so they take effect whether or not the consumer keeps `trunk-io/plugins`; neither is enabled by default, and a Godot repository opts in by adding `gdformat@4.5.0` and `gdlint@4.5.0` to its own `lint.enabled`.
+[`kotlin-lint`](./linters/kotlin-lint/plugin.yaml) reports every ktlint violation as SARIF, including the rules `ktlint -F` cannot fix, which the upstream `ktlint` definition accepts because it only formats; it is not enabled by the plugin or a profile, and a Kotlin repository opts in with `trunk check enable kotlin-lint@1.8.0`, keeping `ktlint` for formatting.
 
 A consumer that drops the source must write this plugin into `plugins.sources` in the same edit that pins the runtime.
 `trunk plugins add` needs a configuration it can already resolve, so it cannot bootstrap a profile whose runtime only this plugin defines.
@@ -208,6 +209,6 @@ The script creates repositories only under a validated temporary directory.
 It commits test fixtures so Trunk has a real Git baseline and adds this checkout as a local plugin.
 The standalone scenario removes `trunk-io/plugins` and exercises failure and success fixtures for each bundled linter.
 The script removes the temporary directory on exit.
-It needs `trunk`, `git`, `ruby`, `jq`, and `dart` on `PATH`; the Dart SDK serves the Flutter profile's `prettier-plugin-markdown-dart`, while the bundled `dart` linter downloads its own.
+It needs `trunk`, `git`, `ruby`, `jq`, `python3`, and `dart` on `PATH`; the Dart SDK serves the Flutter profile's `prettier-plugin-markdown-dart`, while the bundled `dart` linter downloads its own.
 
 [`.github/workflows/ci.yaml`](./.github/workflows/ci.yaml) runs the same script in GitHub Actions, installing the Trunk CLI and a stable Dart SDK on a runner image that already provides the rest.
