@@ -1,0 +1,3 @@
+fun goodName() {
+    println("x")
+}

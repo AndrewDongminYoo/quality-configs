@@ -440,6 +440,7 @@ awk -v id="$plugin_id" -v path="$plugin_root" '
     print "    - gdformat@4.5.0"
     print "    - gdlint@4.5.0"
     print "    - grype@0.110.0"
+    print "    - kotlin-lint@1.8.0"
     print "    - osv-scanner@2.4.0"
     print "    - pinact@4.0.0"
     print "    - toml-tidy@0.4.1"
@@ -504,7 +505,31 @@ awk -v id="$plugin_id" -v path="$plugin_root" '
   git add gdlintrc gdformatrc
   expect_success gdlint main.gd
   expect_format_success gdformat main.gd
+
+  cp "$repo_root/tests/fixtures/violations/Naming.kt" Naming.kt
+  expect_failure kotlin-lint Naming.kt kotlin-lint/standard:function-naming
+  assert_generated_output_contains '/plugin/linters/kotlin-lint/sarif_guard.py'
+  # ktlint places this parse error one line past the end of the file, which
+  # Trunk would file as an existing issue unless the guard moves it back.
+  cp "$repo_root/tests/fixtures/violations/parse-error.kt" Naming.kt
+  expect_failure kotlin-lint Naming.kt kotlin-lint/parse-error "Not a valid Kotlin file" Naming.kt
+  cp "$repo_root/tests/fixtures/clean/Naming.kt" Naming.kt
+  expect_success kotlin-lint Naming.kt
 )
+
+# ktlint exits 1 with empty output when it dies before reporting, for example
+# on a JVM heap failure, which no fixture can provoke, so the guard's refusal
+# is checked against the script itself.
+for guard_input in '' 'Exception: java.lang.OutOfMemoryError' '{"version": "2.1.0"}'; do
+  if printf '%s' "$guard_input" | python3 "$repo_root/linters/kotlin-lint/sarif_guard.py" 1 >/dev/null 2>&1; then
+    printf 'kotlin-lint SARIF guard accepted output that is not a SARIF log: %s\n' "$guard_input" >&2
+    exit 1
+  fi
+done
+if ! printf '{"version": "2.1.0", "runs": []}' | python3 "$repo_root/linters/kotlin-lint/sarif_guard.py" 0 >/dev/null; then
+  printf 'kotlin-lint SARIF guard rejected an empty SARIF log\n' >&2
+  exit 1
+fi
 
 for profile_name in flutter react-native next; do
   profile_root="$test_root/profile-$profile_name"
@@ -528,6 +553,15 @@ flutter_root="$test_root/profile-flutter"
   expect_format_failure prettier dart.md
   cp "$repo_root/tests/fixtures/clean/markdown-dart.md" dart.md
   expect_format_success prettier dart.md
+
+  # kotlin-lint is opt-in, and here it runs beside upstream ktlint, whose
+  # format command accepts the same file: that is the gap it closes.
+  trunk check enable kotlin-lint@1.8.0 --no-progress >/dev/null
+  cp "$repo_root/tests/fixtures/violations/Naming.kt" Naming.kt
+  expect_format_success ktlint Naming.kt
+  expect_failure kotlin-lint Naming.kt kotlin-lint/standard:function-naming
+  cp "$repo_root/tests/fixtures/clean/Naming.kt" Naming.kt
+  expect_success kotlin-lint Naming.kt
 )
 
 next_root="$test_root/profile-next"
