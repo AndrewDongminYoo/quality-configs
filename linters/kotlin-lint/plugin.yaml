@@ -44,7 +44,6 @@ lint:
         - name: LANG
           value: en_US.UTF-8
       suggest_if: never
+      # No version_command: the linter always runs the downloaded ktlint, and a
+      # single command could not name the file on both Windows and elsewhere.
       known_good_version: 1.8.0
-      version_command:
-        parse_regex: ${semver}
-        run: java -jar ${linter}/ktlint --version
