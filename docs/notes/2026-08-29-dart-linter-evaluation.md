@@ -124,3 +124,13 @@ Enabling the format command alone would be worth revisiting, but whether a consu
 
 Revisit the decision when the JSON change lands upstream, since the cost argument disappears at that point and the analyzer's package-resolution requirement becomes the only remaining objection.
 A consumer that runs `flutter pub get` before linting, which every repository measured above does, already satisfies it.
+
+## 2026-09-29: The Profile Enables the Format Command
+
+The open question above is settled: a consumer enables one command with `dart@SYSTEM: commands: [format]`.
+Measured against `trunk-io/plugins` v1.11.0 with Dart 3.13.4 on `PATH`, that entry reported an unformatted file, reported nothing for a formatted file that reads an undefined name, and reported `dart/undefined_identifier` for the same file once `analyze` was added, so the format-only result is analyze being off rather than a clean file.
+No Dart SDK was downloaded (`~/.cache/trunk/tools/dart` stayed empty).
+
+The Flutter profile therefore enables `dart@SYSTEM` with `commands: [format]` and no longer disables `dart`, at the operator's request, so Flutter repositories stop running `dart format` beside Trunk.
+The format command in v1.11.0 already runs from the package root, as upstream `main` does, so a renamed copy of the JSON definition was not needed for it.
+Analyze stays off: its cost argument lasts until an upstream release after v1.11.0 carries trunk-io/plugins#1164, and its silent degradation without `flutter pub get` is unchanged.
