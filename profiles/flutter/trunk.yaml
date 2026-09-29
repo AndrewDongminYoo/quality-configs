@@ -10,10 +10,13 @@ runtimes:
 
 lint:
   disabled:
-    - dart
     - oxipng
     - svgo
   enabled:
+    # The project's own SDK formats, so the result matches running `dart format`
+    # by hand. Analyze stays off: see docs/notes/2026-08-29-dart-linter-evaluation.md.
+    - dart@SYSTEM:
+        commands: [format]
     - ktlint@1.8.0
     - prettier@3.9.6:
         packages:

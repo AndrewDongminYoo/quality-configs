@@ -143,6 +143,7 @@ Merge [`profiles/flutter/trunk.yaml`](./profiles/flutter/trunk.yaml).
 Copy [`profiles/flutter/analysis_options.yaml`](./profiles/flutter/analysis_options.yaml) only for a new project, or review it as a diff against an existing analyzer configuration.
 The analyzer template requires `very_good_analysis` in the consumer's `dev_dependencies`.
 Bloc-specific linting remains project-local because it was not common across the surveyed Flutter repositories.
+The profile enables `dart@SYSTEM` with only its `format` command, so `trunk fmt` and `trunk check` format with the `dart` on `PATH`, the same SDK as a manual `dart format`; `analyze` stays off for the reasons in [`docs/notes/2026-08-29-dart-linter-evaluation.md`](./docs/notes/2026-08-29-dart-linter-evaluation.md).
 Copy [`profiles/flutter/prettier.config.mjs`](./profiles/flutter/prettier.config.mjs) to enable `prettier-plugin-markdown-dart` for fenced Dart blocks.
 Trunk supplies plugin version `1.1.1`, while the consumer environment must provide a Dart or Flutter SDK with `dart` on `PATH`.
 Install the same plugin in the consumer when editor integration or project-owned Prettier scripts also need it.
@@ -209,6 +210,6 @@ The script creates repositories only under a validated temporary directory.
 It commits test fixtures so Trunk has a real Git baseline and adds this checkout as a local plugin.
 The standalone scenario removes `trunk-io/plugins` and exercises failure and success fixtures for each bundled linter.
 The script removes the temporary directory on exit.
-It needs `trunk`, `git`, `ruby`, `jq`, `python3`, and `dart` on `PATH`; the Dart SDK serves the Flutter profile's `prettier-plugin-markdown-dart`, while the bundled `dart` linter downloads its own.
+It needs `trunk`, `git`, `ruby`, `jq`, `python3`, and `dart` on `PATH`; the Dart SDK serves the Flutter profile's `prettier-plugin-markdown-dart` and `dart@SYSTEM`, while the standalone scenario's pinned `dart` linter downloads its own.
 
 [`.github/workflows/ci.yaml`](./.github/workflows/ci.yaml) runs the same script in GitHub Actions, installing the Trunk CLI and a stable Dart SDK on a runner image that already provides the rest.

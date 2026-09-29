@@ -22,8 +22,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # The Flutter profile's prettier-plugin-markdown-dart shells out to `dart`,
-      # which the environment must supply; the bundled dart linter downloads its own SDK.
+      # The Flutter profile's prettier-plugin-markdown-dart and its dart@SYSTEM
+      # format command both run the `dart` on PATH; only the standalone scenario's
+      # pinned dart linter downloads its own SDK.
       - name: Install the Dart SDK
         uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
 

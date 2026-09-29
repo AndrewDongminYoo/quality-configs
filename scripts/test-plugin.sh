@@ -554,6 +554,15 @@ flutter_root="$test_root/profile-flutter"
   cp "$repo_root/tests/fixtures/clean/markdown-dart.md" dart.md
   expect_format_success prettier dart.md
 
+  # The profile enables dart@SYSTEM with only its format command. The fixture
+  # that is formatted but reads an undefined name passes, which proves analyze
+  # stays off.
+  cp "$repo_root/tests/fixtures/violations/unformatted.dart" main.dart
+  expect_format_failure dart main.dart
+  cp "$repo_root/tests/fixtures/violations/main.dart" main.dart
+  expect_format_success dart main.dart
+  expect_success dart main.dart
+
   # kotlin-lint is opt-in, and here it runs beside upstream ktlint, whose
   # format command accepts the same file: that is the gap it closes.
   trunk check enable kotlin-lint@1.8.0 --no-progress >/dev/null
