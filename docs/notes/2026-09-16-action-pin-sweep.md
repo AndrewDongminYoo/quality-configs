@@ -9,6 +9,13 @@ The sweep is shelved rather than moved (operator decision, 2026-09-16); its scri
 If it returns, its home should be a repository whose issues are the operator's own and can be private, so that private repositories can be named and the digest is unnecessary.
 The sections below are kept as the record of the design and its measurements.
 
+## Current Policy (2026-10-22)
+
+The operator authorized grouped weekly Dependabot updates for this repository on 2026-10-22.
+Minor and patch GitHub Actions updates share a group, major updates remain separate, and at most three version-update pull requests are open at once.
+This supersedes the earlier decision to withhold Dependabot for this repository.
+The `pinact-outdated` plugin remains notification-only for consumers, and the historical sweep remains shelved.
+
 ## Scope
 
 This note records why outdated GitHub Actions pins are reported as notifications rather than pull requests, and the measurements taken on 2026-09-16 that sized the sweep.
