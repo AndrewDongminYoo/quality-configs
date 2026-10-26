@@ -443,7 +443,7 @@ awk -v id="$plugin_id" -v path="$plugin_root" '
     print "    - kotlin-lint@1.8.0"
     print "    - osv-scanner@2.4.0"
     print "    - pinact@4.0.0"
-    print "    - toml-tidy@0.4.1"
+    print "    - toml-tidy@0.7.0"
   }
 ' "$repo_root/profiles/baseline/trunk.yaml" >"$standalone_root/.trunk/trunk.yaml"
 (
@@ -461,6 +461,16 @@ awk -v id="$plugin_id" -v path="$plugin_root" '
   expect_format_failure toml-tidy pyproject.toml
   cp "$repo_root/tests/fixtures/clean/pyproject.toml" pyproject.toml
   expect_format_success toml-tidy pyproject.toml
+
+  # toml-tidy 0.7.0 also reads toml-tidy.toml: the default natural order
+  # rejects item10 before item2, and the alpha order from that file accepts it
+  # only if the Trunk run reads the file.
+  printf 'item10 = 1\nitem2 = 2\n' >settings.toml
+  expect_format_failure toml-tidy settings.toml
+  printf 'order = "alpha"\n' >toml-tidy.toml
+  git add -- toml-tidy.toml
+  expect_format_success toml-tidy settings.toml
+  git rm --quiet --force -- toml-tidy.toml settings.toml
 
   mkdir -p .github/actions/fixture
   cp "$repo_root/tests/fixtures/violations/action.yaml" .github/actions/fixture/action.yaml
