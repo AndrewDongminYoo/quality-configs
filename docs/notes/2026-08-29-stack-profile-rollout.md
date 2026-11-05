@@ -66,7 +66,7 @@ node@22.22.3  ->  Checked 26 files, 76 lint issues
 ```
 
 Cite `order-espresso-website` in preference to this pair.
-The operator was editing the `toml-tidy` checkout in parallel during both runs, and although the file count matched and CSpell's behavior here is runtime-bound, nothing else was moving in the Next consumer.
+I was editing the `toml-tidy` checkout in parallel during both runs, and although the file count matched and CSpell's behavior here is runtime-bound, nothing else was moving in the Next consumer.
 
 `piggon` repeated the `order-espresso-website` shape a second time, having enabled `cspell@10.0.1` under `node@22.16.0` on its own:
 
@@ -86,7 +86,7 @@ Each command was bracketed by a checksum of `.trunk/trunk.yaml`.
 - `trunk config print` leaves the file byte-identical.
 - `trunk check --all --no-fix --filter=…` leaves the file byte-identical.
 
-A `toml-tidy` diff that also carried `oxipng@9.1.5`, `isort@9.0.1`, `checkov@3.3.15`, and `ruff@0.16.5` was the operator's own parallel work in that checkout, not a side effect of the rollout.
+A `toml-tidy` diff that also carried `oxipng@9.1.5`, `isort@9.0.1`, `checkov@3.3.15`, and `ruff@0.16.5` was my own parallel work in that checkout, not a side effect of the rollout.
 The bracketing checksums are what separated the two.
 
 ## The Overlay Fails the Baseline It Ships With

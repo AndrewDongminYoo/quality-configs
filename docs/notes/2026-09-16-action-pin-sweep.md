@@ -5,13 +5,13 @@
 The weekly sweep described below ran once from this repository (PR #4, issue #5) and was removed the same day (PR #6).
 A tracking issue in this public repository that lists outdated pins across the owner's repositories reads as a defect report against the plugin, which it is not, and the private-repository digest existed only to work around the issue being public.
 The trunk action `pinact-outdated` stays; it is a plugin action and reports to the consumer's own terminal.
-The sweep is shelved rather than moved (operator decision, 2026-09-16); its scripts and workflow stay in this repository's history at `e49a81c`.
-If it returns, its home should be a repository whose issues are the operator's own and can be private, so that private repositories can be named and the digest is unnecessary.
+The sweep is shelved rather than moved (decision, 2026-09-16); its scripts and workflow stay in this repository's history at `e49a81c`.
+If it returns, its home should be a repository whose issues are my own and can be private, so that private repositories can be named and the digest is unnecessary.
 The sections below are kept as the record of the design and its measurements.
 
 ## Current Policy (2026-10-22)
 
-The operator authorized grouped weekly Dependabot updates for this repository on 2026-10-22.
+Grouped weekly Dependabot updates for this repository were authorized on 2026-10-22.
 Minor and patch GitHub Actions updates share a group, major updates remain separate, and at most three version-update pull requests are open at once.
 This supersedes the earlier decision to withhold Dependabot for this repository.
 The `pinact-outdated` plugin remains notification-only for consumers, and the historical sweep remains shelved.
@@ -22,7 +22,7 @@ This note records why outdated GitHub Actions pins are reported as notifications
 
 ## Decision
 
-The operator keeps `pinact` enabled and actions SHA-pinned, and wants a watcher for newer releases that never opens a pull request.
+I keep `pinact` enabled and actions SHA-pinned, and want a watcher for newer releases that never opens a pull request.
 Dependabot version updates cannot do that: the options reference offers `groups`, `cooldown`, and `open-pull-requests-limit`, but setting the limit to zero disables the ecosystem rather than switching to alerts, and no notification-only mode exists.
 Dependabot was withheld because one pull request per action per repository, each with its own CI run, was more volume than the pins were worth.
 
@@ -100,6 +100,6 @@ That copy made this repository's own `tests/fixtures/*/action.yaml`, deliberatel
 
 ## Token
 
-The sweep ran under a repository secret `GH_TOKEN`, a personal access token that could list and read the owner's repositories including private ones; the operator deleted that secret on 2026-09-16 after the workflow was removed, and nothing in this repository reads it now.
+The sweep ran under a repository secret `GH_TOKEN`, a personal access token that could list and read the owner's repositories including private ones; that secret was deleted on 2026-09-16 after the workflow was removed, and nothing in this repository reads it now.
 The workflow scoped every listing to the owner by name, so the token's reach beyond that owner was never exercised.
 The tracking issue was written with the workflow's own `GITHUB_TOKEN`, scoped to `issues: write`, so the personal token was never used for a write.
