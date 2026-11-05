@@ -83,9 +83,9 @@ Among the 22 repositories with a Prettier config, `tabWidth: 2` and `useTabs: fa
 Across 43 owned repositories with `package.json`, `prettier-plugin-tailwindcss` was the only declared `prettier-plugin-*` package and appeared in 6 repositories.
 Those repositories used JavaScript Prettier configs and project-specific Tailwind stylesheet paths, so the shared baseline uses ESM while the path remains consumer-local.
 `prettier-plugin-markdown-dart` was not yet present in the surveyed consumer manifests.
-It is included in the Flutter profile by explicit operator request and is recorded as a profile decision rather than an observed common setting.
+It is included in the Flutter profile by explicit request and is recorded as a profile decision rather than an observed common setting.
 
 ## Source Separation
 
-The shared Markdownlint, yamllint, and SVGO files cannot be described as operator-wide common configs because the owned repositories had at most one direct config for those tools.
+The shared Markdownlint, yamllint, and SVGO files cannot be described as cross-repository common configs because the owned repositories had at most one direct config for those tools.
 Those defaults are adapted from primary Trunk integration sources and the public [`trunk-io/configs`](https://github.com/trunk-io/configs) repository, then constrained by the safety rules in this repository.
