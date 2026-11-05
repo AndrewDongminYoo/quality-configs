@@ -99,7 +99,7 @@ A consumer that does not want it disables it locally under `actions.disabled`, t
 The baseline pins GitHub Actions to commit SHAs through `pinact`, and a pin only stays current if something watches upstream releases.
 The `pinact-outdated` plugin reports notifications and does not open pull requests.
 This repository separately uses Dependabot for weekly grouped minor and patch GitHub Actions updates, with major updates kept separate and at most three open version-update pull requests.
-Dongmin Yu authorized this grouped policy on 2026-10-22 to reduce the volume of individual action-update pull requests.
+This grouped policy was authorized on 2026-10-22 to reduce the volume of individual action-update pull requests.
 
 [`pinact-outdated`](./actions/pinact-outdated/plugin.yaml) is a trunk action that once a day copies the repository's workflow and action files aside, runs `pinact run --update` on the copy, and reports each `uses:` whose upstream has a newer release as a `notification_v1` message.
 It edits nothing; re-pinning stays a local `pinact run` from the repository root after editing the version comment to the tag you want, and the notification carries that command with the path of the pinact binary the scan used, because trunk's `github-actions` file type reaches only `.github/actions/**` while the scan covers every `action.yml` in the tree.
