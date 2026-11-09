@@ -1,19 +1,24 @@
 # This repository consumes its root plugin through a local source for self-validation.
 version: 0.1
 cli:
-  version: 1.25.0
+  version: 1.29.0
 plugins:
   sources:
+    - id: trunk
+      ref: v1.11.0
+      uri: https://github.com/trunk-io/plugins
     - id: quality-configs
       local: .
 lint:
   disabled: [grype, osv-scanner]
   ignore:
-    - linters:
-        [cspell, grype, markdownlint, osv-scanner, prettier, svgo, yamllint]
+    - linters: [cspell, grype, markdownlint, osv-scanner, prettier, svgo, yamllint]
       paths:
         - tests/fixtures/**
     - linters: [prettier]
       paths:
         - profiles/flutter/**
         - profiles/next/**
+actions:
+  disabled:
+    - trunk-fmt-pre-commit

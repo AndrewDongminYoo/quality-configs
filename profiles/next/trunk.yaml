@@ -8,13 +8,15 @@ runtimes:
     - python@3.14.4
 
 lint:
+  definitions:
+    - name: prettier
+      extra_packages:
+        - prettier-plugin-tailwindcss@0.8.1
   disabled:
     - dotenv-linter
     - oxipng
   enabled:
-    - prettier@3.9.6:
-        packages:
-          - prettier-plugin-tailwindcss@0.8.1
+    - prettier@3.9.6
     - svgo@4.1.0
 
 actions:

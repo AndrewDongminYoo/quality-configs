@@ -9,6 +9,10 @@ runtimes:
     - python@3.14.4
 
 lint:
+  definitions:
+    - name: prettier
+      extra_packages:
+        - prettier-plugin-markdown-dart@1.1.1
   disabled:
     - oxipng
     - svgo
@@ -18,9 +22,7 @@ lint:
     - dart@SYSTEM:
         commands: [format]
     - ktlint@1.8.0
-    - prettier@3.9.6:
-        packages:
-          - prettier-plugin-markdown-dart@1.1.1
+    - prettier@3.9.6
     - shellcheck@0.11.0
     - shfmt@3.13.1
   ignore:

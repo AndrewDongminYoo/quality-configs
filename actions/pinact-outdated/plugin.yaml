@@ -3,8 +3,7 @@ actions:
   definitions:
     - id: pinact-outdated
       display_name: GitHub Actions pins have a newer release
-      description:
-        Once a day, report every SHA-pinned GitHub Action in this repository whose
+      description: Once a day, report every SHA-pinned GitHub Action in this repository whose
         upstream has a newer release, as a notification only. Nothing is edited and
         no pull request is opened; re-pinning stays a deliberate local change. Silent
         when pinact is unavailable or cannot reach GitHub.
